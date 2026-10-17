@@ -1,8 +1,26 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status, viewsets
 from django.db.models import Sum, F
 from decimal import Decimal
 from .models import Producto, MovimientoKardex
+
+from .serializers import ProductoSerializer
+
+class ProductoViewSet(viewsets.ModelViewSet):
+    queryset = Producto.objects.all().order_by('-id')
+    serializer_class = ProductoSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        producto = self.get_object()
+        if producto.movimientos.exists():
+            return Response(
+                {'detail': 'No se puede eliminar este producto porque tiene movimientos en el kárdex.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
 
 class DashboardStatsView(APIView):
     def get(self, request):
