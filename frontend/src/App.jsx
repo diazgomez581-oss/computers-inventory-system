@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Box, CssBaseline, Typography, Paper } from '@mui/material';
+import { Box, CssBaseline } from '@mui/material';
+import Navbar from './components/Sidebar'; // O components/Navbar.jsx
 import Productos from './pages/Productos';
-import Navbar from './components/Sidebar'; // Si mantuviste el archivo como Sidebar.jsx
+import Dashboard from './pages/Dashboard'; // <-- Importar
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -10,32 +11,18 @@ function App() {
     <Box sx={{ minHeight: '100vh', backgroundColor: '#F6F8FC' }}>
       <CssBaseline />
 
-      {/* Barra de navegación superior idéntica a la plantilla */}
+      {/* Navbar horizontal tipo maqueta */}
       <Navbar currentView={currentView} onSelectView={setCurrentView} />
 
-      {/* Contenedor central de contenido */}
+      {/* Contenido principal */}
       <Box component="main" sx={{ p: { xs: 2.5, md: 4 }, maxWidth: '1440px', margin: '0 auto' }}>
-        {currentView === 'dashboard' && (
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: '#17243B', mb: 0.5 }}>
-              Panel general
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#8190A5', mb: 3 }}>
-              Resumen de STB Computers, calculado con los datos que registre en cada pantalla.
-            </Typography>
+        {/* Dashboard completo */}
+        {currentView === 'dashboard' && <Dashboard />}
 
-            <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', border: '1px solid #E8EDF4' }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#17243B' }}>
-                Vista previa del Dashboard activo
-              </Typography>
-            </Paper>
-          </Box>
-        )}
-
-        {/* Vista del Catálogo de Productos (INV-01) */}
+        {/* Catálogo de Productos */}
         {currentView === 'productos' && <Productos />}
 
-        {/* Vistas pendientes */}
+        {/* Módulos subsiguientes */}
         {currentView === 'kardex' && <h2>Tarjeta Kárdex a Costo Promedio (INV-02)</h2>}
         {currentView === 'compras' && <h2>Recepción de Compras (COMP-02)</h2>}
         {currentView === 'proveedores' && <h2>Directorio de Proveedores (COMP-01)</h2>}
