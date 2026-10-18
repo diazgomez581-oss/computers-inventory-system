@@ -10,7 +10,7 @@ import {
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 
-export default function Navbar({ currentView, onSelectView }) {
+export default function Navbar({ currentView, onSelectView, onLogout, user }) {
   // Estados para los menús desplegables superiores
   const [anchorInv, setAnchorInv] = useState(null);
   const [anchorFin, setAnchorFin] = useState(null);
@@ -262,14 +262,14 @@ export default function Navbar({ currentView, onSelectView }) {
             borderRadius: '7px',
           }}
         >
-          A
+          {(user?.nombre || user?.username || 'U').charAt(0).toUpperCase()}
         </Avatar>
         <Box sx={{ textAlign: 'left', display: { xs: 'none', sm: 'block' } }}>
           <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700, fontSize: '0.75rem', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-            Administrador STB
+            {user?.nombre || user?.username || 'Usuario'}
           </Typography>
           <Typography variant="caption" sx={{ color: '#718096', fontSize: '0.65rem', whiteSpace: 'nowrap' }}>
-            Administrador
+            {user?.rol || 'Usuario'}
           </Typography>
         </Box>
         <KeyboardArrowDownIcon sx={{ color: '#718096', fontSize: 16 }} />
@@ -294,7 +294,12 @@ export default function Navbar({ currentView, onSelectView }) {
           },
         }}
       >
-        <MenuItem onClick={() => setAnchorUser(null)}>
+        <MenuItem
+          onClick={() => {
+            setAnchorUser(null);
+            onLogout();
+          }}
+        >
           <LogoutOutlinedIcon fontSize="small" sx={{ mr: 1, color: '#EF4444' }} />
           Cerrar sesión
         </MenuItem>
