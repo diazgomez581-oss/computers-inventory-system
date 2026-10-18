@@ -19,16 +19,18 @@ export default function Navbar({ currentView, onSelectView }) {
   const isInvActive = ['productos', 'kardex'].includes(currentView);
   const isFinActive = ['gastos', 'estado_resultados', 'balance_general', 'ratios'].includes(currentView);
 
+  // Estilo compacto para que quepa todo en una sola línea fija
   const btnStyle = (isActive) => ({
     textTransform: 'none',
-    fontSize: '0.85rem',
+    fontSize: '0.82rem',
     fontWeight: isActive ? 700 : 500,
     color: isActive ? '#FFFFFF' : '#A0AEC0',
     backgroundColor: isActive ? '#3B82F6' : 'transparent',
     borderRadius: '8px',
-    px: 1.6,
-    py: 0.7,
-    minHeight: '36px',
+    px: 1.2,
+    py: 0.6,
+    minHeight: '34px',
+    whiteSpace: 'nowrap',
     '&:hover': {
       backgroundColor: isActive ? '#2563EB' : 'rgba(255, 255, 255, 0.08)',
       color: '#FFFFFF',
@@ -41,8 +43,8 @@ export default function Navbar({ currentView, onSelectView }) {
       sx={{
         backgroundColor: '#101B31',
         borderBottom: '1px solid #28334A',
-        px: { xs: 2, md: 4 },
-        py: 1.2,
+        px: { xs: 2, md: 3 },
+        py: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -50,21 +52,24 @@ export default function Navbar({ currentView, onSelectView }) {
         top: 0,
         zIndex: 1100,
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        minHeight: '58px',
+        maxHeight: '58px',
+        boxSizing: 'border-box',
       }}
     >
       {/* 1. Logo / Identidad */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mr: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mr: 2, flexShrink: 0 }}>
         <Box
           sx={{
-            width: 34,
-            height: 34,
-            borderRadius: '9px',
+            width: 32,
+            height: 32,
+            borderRadius: '8px',
             background: 'linear-gradient(135deg, #60A5FA, #3B82F6)',
             display: 'grid',
             placeItems: 'center',
             color: '#FFFFFF',
             fontWeight: 800,
-            fontSize: '1.05rem',
+            fontSize: '1rem',
             boxShadow: '0 4px 10px rgba(59, 130, 246, 0.35)',
           }}
         >
@@ -73,21 +78,21 @@ export default function Navbar({ currentView, onSelectView }) {
         <Box>
           <Typography
             variant="subtitle2"
-            sx={{ fontWeight: 800, color: '#FFFFFF', lineHeight: 1.1, fontSize: '0.95rem' }}
+            sx={{ fontWeight: 800, color: '#FFFFFF', lineHeight: 1.1, fontSize: '0.9rem', whiteSpace: 'nowrap' }}
           >
             STB Computers
           </Typography>
           <Typography
             variant="caption"
-            sx={{ color: '#718096', fontSize: '0.65rem', letterSpacing: 0.8, fontWeight: 700 }}
+            sx={{ color: '#718096', fontSize: '0.62rem', letterSpacing: 0.8, fontWeight: 700, display: 'block', whiteSpace: 'nowrap' }}
           >
             PANEL DE ADMINISTRACIÓN
           </Typography>
         </Box>
       </Box>
 
-      {/* 2. Pestañas / Enlaces de navegación horizontal */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexGrow: 1, flexWrap: 'wrap' }}>
+      {/* 2. Pestañas de navegación (en una sola fila fija sin saltos) */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexGrow: 1, flexWrap: 'nowrap', overflowX: 'auto', minWidth: 0 }}>
         {/* Panel General */}
         <Button
           sx={btnStyle(currentView === 'dashboard')}
@@ -229,7 +234,7 @@ export default function Navbar({ currentView, onSelectView }) {
         </Menu>
       </Box>
 
-      {/* 3. Tarjeta de Usuario (Extremo derecho, idéntica a la maqueta) */}
+      {/* 3. Tarjeta de Usuario */}
       <Box
         onClick={(e) => setAnchorUser(e.currentTarget)}
         sx={{
@@ -242,6 +247,8 @@ export default function Navbar({ currentView, onSelectView }) {
           px: 1.5,
           py: 0.5,
           cursor: 'pointer',
+          flexShrink: 0,
+          ml: 2,
           '&:hover': { backgroundColor: '#233557' },
         }}
       >
@@ -258,10 +265,10 @@ export default function Navbar({ currentView, onSelectView }) {
           A
         </Avatar>
         <Box sx={{ textAlign: 'left', display: { xs: 'none', sm: 'block' } }}>
-          <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700, fontSize: '0.75rem', lineHeight: 1.1 }}>
+          <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700, fontSize: '0.75rem', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
             Administrador STB
           </Typography>
-          <Typography variant="caption" sx={{ color: '#718096', fontSize: '0.65rem' }}>
+          <Typography variant="caption" sx={{ color: '#718096', fontSize: '0.65rem', whiteSpace: 'nowrap' }}>
             Administrador
           </Typography>
         </Box>
