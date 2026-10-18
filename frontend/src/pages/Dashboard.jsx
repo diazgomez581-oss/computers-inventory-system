@@ -16,6 +16,11 @@ import {
 const METRICAS_URL = 'http://127.0.0.1:8000/api/productos/metricas_dashboard/';
 const PRODUCTOS_URL = 'http://127.0.0.1:8000/api/productos/';
 
+const getAuthHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('stb_user') || 'null');
+  return user?.token ? { Authorization: `Token ${user.token}` } : {};
+};
+
 export default function Dashboard() {
   const [metricas, setMetricas] = useState({
     inversion_bodega: 0,
@@ -31,7 +36,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     // 1. Cargar métricas ejecutivas
-    fetch(METRICAS_URL)
+    fetch(METRICAS_URL, { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) setMetricas(data);
@@ -39,7 +44,7 @@ export default function Dashboard() {
       .catch((err) => console.log('Usando métricas locales:', err));
 
     // 2. Cargar productos para el resumen de existencias
-    fetch(PRODUCTOS_URL)
+    fetch(PRODUCTOS_URL, { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (Array.isArray(data)) {

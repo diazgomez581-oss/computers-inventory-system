@@ -1,18 +1,20 @@
-from rest_framework.views import APIView
-
-from rest_framework import status, viewsets
-
 from decimal import Decimal
+from django.contrib.auth import authenticate
+from django.db.models import Sum, F
 from .models import Producto, MovimientoKardex
-
 from .serializers import ProductoSerializer
 from rest_framework.decorators import action
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import status, viewsets
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.db.models import Sum, F, FloatField, ExpressionWrapper
 
 class ProductoViewSet(viewsets.ModelViewSet):
     queryset = Producto.objects.all().order_by('-id')
     serializer_class = ProductoSerializer
+    permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=['get'])
     def metricas_dashboard(self, request):
@@ -36,6 +38,8 @@ class ProductoViewSet(viewsets.ModelViewSet):
 
 
 class DashboardStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         # 1. Total en bodega a costo promedio ponderado
         total_bodega = Producto.objects.aggregate(
@@ -55,3 +59,30 @@ class DashboardStatsView(APIView):
             'total_productos': total_productos,
             'total_salidas': f"{total_salidas} unidades",
         })
+
+class LoginView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({
+                "mensaje": "Inicio de sesión exitoso",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "nombre": user.first_name or user.username,
+                    "rol": "Administrador" if user.is_staff else "Operador",
+                    "token": token.key,
+                }
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {"error": "Credenciales inválidas. Verifica usuario y contraseña."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )

@@ -27,6 +27,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 
 const API_URL = 'http://127.0.0.1:8000/api/productos/';
 
+const getAuthHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('stb_user') || 'null');
+  return user?.token ? { Authorization: `Token ${user.token}` } : {};
+};
+
 const CATEGORIAS = [
   { value: 'COMPONENTES', label: 'Componentes (RAM, CPU, GPU, Fuentes)' },
   { value: 'ALMACENAMIENTO', label: 'Almacenamiento (SSD, HDD, M.2)' },
@@ -51,7 +56,7 @@ export default function Productos() {
 
   const fetchProductos = async () => {
     try {
-      const res = await fetch(API_URL);
+      const res = await fetch(API_URL, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setProductos(data);
@@ -76,7 +81,7 @@ export default function Productos() {
       const url = productoEditando ? `${API_URL}${productoEditando.id}/` : API_URL;
       const res = await fetch(url, {
         method: productoEditando ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(form),
       });
 
@@ -130,7 +135,10 @@ export default function Productos() {
 
     setErrorEliminar('');
     try {
-      const res = await fetch(`${API_URL}${productoEliminando.id}/`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}${productoEliminando.id}/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         setProductoEliminando(null);
         fetchProductos();
