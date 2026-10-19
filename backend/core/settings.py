@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +27,18 @@ SECRET_KEY = 'django-insecure-3*p1m&5xav9)#6(r)gwdqto6f!&xvnr=43wr@d(@ng#h38y0u!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '*',
+    'computers-backend-bpk0.onrender.com',
+    'localhost',
+    '127.0.0.1',
+]
+
+# Necesario en Django moderno para que permita iniciar sesión en Render con HTTPS:
+CSRF_TRUSTED_ORIGINS = [
+    'https://computers-backend-bpk0.onrender.com',
+    'https://*.onrender.com',
+]
 
 
 # Application definition
@@ -43,7 +56,6 @@ INSTALLED_APPS = [
     'corsheaders',
     # Aplicación local
     'inventario',
-
 ]
 
 MIDDLEWARE = [
@@ -56,6 +68,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
 CORS_ALLOW_ALL_ORIGINS = True
 
 REST_FRAMEWORK = {
@@ -89,13 +102,13 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
-
+# Conecta a Neon mediante DATABASE_URL en Render, o usa SQLite en local
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        ssl_require=True if os.environ.get('DATABASE_URL') else False
+    )
 }
 
 
@@ -134,6 +147,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
 # Email
