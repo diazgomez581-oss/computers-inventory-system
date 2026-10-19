@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../api';
 import {
   Box,
   Typography,
@@ -13,8 +14,8 @@ import {
   Chip,
 } from '@mui/material';
 
-const METRICAS_URL = 'http://127.0.0.1:8000/api/productos/metricas_dashboard/';
-const PRODUCTOS_URL = 'http://127.0.0.1:8000/api/productos/';
+const METRICAS_URL = `${API_URL}/api/dashboard/metricas/`;
+const PRODUCTOS_URL = `${API_URL}/api/productos/`;  
 
 const getAuthHeaders = () => {
   const user = JSON.parse(localStorage.getItem('stb_user') || 'null');

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../api';
 import {
   Box,
   Typography,
@@ -25,8 +26,9 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-const API_URL = 'http://127.0.0.1:8000/api/productos/';
+//const API_URL = 'http://127.0.0.1:8000/api/productos/';
 
+const ENDPOINT_PRODUCTOS = `${API_URL}/api/productos/`; // o ajusta según el nombre que use tu archivo
 const getAuthHeaders = () => {
   const user = JSON.parse(localStorage.getItem('stb_user') || 'null');
   return user?.token ? { Authorization: `Token ${user.token}` } : {};
