@@ -14,8 +14,8 @@ import {
   Chip,
 } from '@mui/material';
 
-const METRICAS_URL = `${API_URL}/api/dashboard/metricas/`;
-const PRODUCTOS_URL = `${API_URL}/api/productos/`;  
+const METRICAS_URL = `${API_URL}/api/productos/metricas_dashboard/`;
+const PRODUCTOS_URL = `${API_URL}/api/productos/`;
 
 const getAuthHeaders = () => {
   const user = JSON.parse(localStorage.getItem('stb_user') || 'null');

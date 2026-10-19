@@ -26,9 +26,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-//const API_URL = 'http://127.0.0.1:8000/api/productos/';
-
-const ENDPOINT_PRODUCTOS = `${API_URL}/api/productos/`; // o ajusta según el nombre que use tu archivo
+const ENDPOINT_PRODUCTOS = `${API_URL}/api/productos/`;
 const getAuthHeaders = () => {
   const user = JSON.parse(localStorage.getItem('stb_user') || 'null');
   return user?.token ? { Authorization: `Token ${user.token}` } : {};
@@ -58,7 +56,7 @@ export default function Productos() {
 
   const fetchProductos = async () => {
     try {
-      const res = await fetch(API_URL, { headers: getAuthHeaders() });
+      const res = await fetch(ENDPOINT_PRODUCTOS, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setProductos(data);
@@ -80,7 +78,9 @@ export default function Productos() {
     }
 
     try {
-      const url = productoEditando ? `${API_URL}${productoEditando.id}/` : API_URL;
+      const url = productoEditando
+        ? `${ENDPOINT_PRODUCTOS}${productoEditando.id}/`
+        : ENDPOINT_PRODUCTOS;
       const res = await fetch(url, {
         method: productoEditando ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -137,7 +137,7 @@ export default function Productos() {
 
     setErrorEliminar('');
     try {
-      const res = await fetch(`${API_URL}${productoEliminando.id}/`, {
+      const res = await fetch(`${ENDPOINT_PRODUCTOS}${productoEliminando.id}/`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
