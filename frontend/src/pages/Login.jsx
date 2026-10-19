@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_URL } from '../api';
+import { API_URL as BASE_URL } from '../api';
 import {
   Box,
   Paper,
@@ -14,6 +14,9 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
+// Respaldo directo en caso de que la variable de entorno no esté definida
+const API_URL = BASE_URL || import.meta.env.VITE_API_URL || 'https://computers-backend-bpk0.onrender.com';
+
 export default function Login({ onLoginSuccess, sessionExpired = '' }) {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +29,7 @@ export default function Login({ onLoginSuccess, sessionExpired = '' }) {
     setLoading(true);
 
     try {
-        const response = await fetch(`${API_URL}/api/login/`,{
+      const response = await fetch(`${API_URL}/api/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),

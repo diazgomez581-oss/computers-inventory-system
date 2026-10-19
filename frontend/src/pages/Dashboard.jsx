@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_URL } from '../api';
+import { API_URL as BASE_URL } from '../api';
 import {
   Box,
   Typography,
@@ -13,6 +13,9 @@ import {
   TableRow,
   Chip,
 } from '@mui/material';
+
+// Respaldo directo para evitar cualquier llamada a localhost
+const API_URL = BASE_URL || import.meta.env.VITE_API_URL || 'https://computers-backend-bpk0.onrender.com';
 
 const METRICAS_URL = `${API_URL}/api/productos/metricas_dashboard/`;
 const PRODUCTOS_URL = `${API_URL}/api/productos/`;
@@ -92,7 +95,7 @@ export default function Dashboard() {
         </Typography>
       </Box>
 
-      {/* 1. Fila de 5 Tarjetas Superiores (Criterio de aceptación STB-3) */}
+      {/* 1. Fila de 5 Tarjetas Superiores */}
       <Grid container spacing={2.5} sx={{ mb: 3.5 }}>
         {/* Tarjeta 1: Total en Bodega (WAC) */}
         <Grid item xs={12} sm={6} md={2.4}>
@@ -172,7 +175,7 @@ export default function Dashboard() {
 
       {/* 2. Sección Gráfica y Tabla de Inventario */}
       <Grid container spacing={3}>
-        {/* Gráfico de Barras: Ventas vs Costos (Inspirado en el prototipo de Hazel) */}
+        {/* Gráfico de Barras: Ventas vs Costos */}
         <Grid item xs={12} md={6}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', border: '1px solid #E8EDF4', height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>

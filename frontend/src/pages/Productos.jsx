@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_URL } from '../api';
+import { API_URL as BASE_URL } from '../api';
 import {
   Box,
   Typography,
@@ -26,7 +26,10 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 
+// Respaldo directo en caso de que la variable de entorno no esté disponible
+const API_URL = BASE_URL || import.meta.env.VITE_API_URL || 'https://computers-backend-bpk0.onrender.com';
 const ENDPOINT_PRODUCTOS = `${API_URL}/api/productos/`;
+
 const getAuthHeaders = () => {
   const user = JSON.parse(localStorage.getItem('stb_user') || 'null');
   return user?.token ? { Authorization: `Token ${user.token}` } : {};
