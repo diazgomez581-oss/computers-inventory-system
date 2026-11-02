@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { API_URL as BASE_URL } from '../api';
+
+import React, { useEffect, useState } from 'react';
+import { API_URL } from '../api';
 import {
   Box,
   Typography,
@@ -12,303 +13,758 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Alert,
+  CircularProgress,
+  LinearProgress,
+  Button,
 } from '@mui/material';
 
-// Respaldo directo para evitar cualquier llamada a localhost
-const API_URL = BASE_URL || import.meta.env.VITE_API_URL || 'https://computers-backend-bpk0.onrender.com';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
+import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 const METRICAS_URL = `${API_URL}/api/productos/metricas_dashboard/`;
 const PRODUCTOS_URL = `${API_URL}/api/productos/`;
 
 const getAuthHeaders = () => {
-  const user = JSON.parse(localStorage.getItem('stb_user') || 'null');
-  return user?.token ? { Authorization: `Token ${user.token}` } : {};
+  try {
+    const user = JSON.parse(
+      localStorage.getItem('stb_user') || 'null'
+    );
+
+    return user?.token
+      ? { Authorization: `Token ${user.token}` }
+      : {};
+  } catch {
+    return {};
+  }
 };
 
-export default function Dashboard() {
-  const [metricas, setMetricas] = useState({
-    inversion_bodega: 0,
-    unidades_stock: 0,
-    total_productos: 0,
-    ventas_mes: 86400.00,
-    utilidad_neta: 11250.00,
-    razon_corriente: 1.82,
-    gastos_mes: 2450.00,
+const formatoMoneda = (valor) =>
+  Number(valor || 0).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 
-  const [topProductos, setTopProductos] = useState([]);
+const formatoNumero = (valor) =>
+  Number(valor || 0).toLocaleString('en-US');
 
-  useEffect(() => {
-    // 1. Cargar métricas ejecutivas
-    fetch(METRICAS_URL, { headers: getAuthHeaders() })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) setMetricas(data);
-      })
-      .catch((err) => console.log('Usando métricas locales:', err));
+const ESTILO_TARJETA = {
+  p: 2.5,
+  borderRadius: '16px',
+  border: '1px solid #E8EDF4',
+  backgroundColor: '#FFFFFF',
+  boxShadow: '0 5px 18px rgba(22, 44, 78, 0.03)',
+  height: '100%',
+};
 
-    // 2. Cargar productos para el resumen de existencias
-    fetch(PRODUCTOS_URL, { headers: getAuthHeaders() })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (Array.isArray(data)) {
-          // Ordenar por mayor valor invertido en bodega
-          const ordenados = [...data].sort(
-            (a, b) => (b.stock * b.costo_promedio) - (a.stock * a.costo_promedio)
-          );
-          setTopProductos(ordenados.slice(0, 5));
-        }
-      })
-      .catch((err) => console.log('Error cargando top productos:', err));
-  }, []);
+const CATEGORIAS = {
+  COMPONENTES: 'Componentes',
+  ALMACENAMIENTO: 'Almacenamiento',
+  PERIFERICOS: 'Periféricos',
+  REDES: 'Redes',
+  ACCESORIOS: 'Accesorios',
+};
 
-  const cardStyle = {
-    p: 2.8,
-    borderRadius: '16px',
-    border: '1px solid #E8EDF4',
-    backgroundColor: '#FFFFFF',
-    boxShadow: '0 5px 18px rgba(22, 44, 78, 0.03)',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    height: '100%',
+function TarjetaMetrica({
+  titulo,
+  valor,
+  detalle,
+  icono,
+  pendiente = false,
+}) {
+  return (
+    <Paper elevation={0} sx={ESTILO_TARJETA}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          mb: 2,
+          gap: 1,
+        }}
+      >
+        <Typography
+          variant="caption"
+          sx={{
+            color: '#8290A5',
+            fontWeight: 700,
+            fontSize: '0.78rem',
+          }}
+        >
+          {titulo}
+        </Typography>
+
+        <Box sx={{ color: pendiente ? '#94A3B8' : '#4C67ED' }}>
+          {icono}
+        </Box>
+      </Box>
+
+      <Typography
+        variant="h5"
+        sx={{
+          fontWeight: 800,
+          color: pendiente ? '#94A3B8' : '#24334E',
+          letterSpacing: '-0.03em',
+          mb: 1,
+        }}
+      >
+        {pendiente ? '—' : valor}
+      </Typography>
+
+      <Typography
+        variant="caption"
+        sx={{
+          color: pendiente ? '#94A3B8' : '#64748B',
+          fontWeight: 600,
+        }}
+      >
+        {detalle}
+      </Typography>
+    </Paper>
+  );
+}
+
+export default function Dashboard() {
+  const [metricas, setMetricas] = useState(null);
+  const [productos, setProductos] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+
+  const cargarDashboard = async () => {
+    setCargando(true);
+    setError('');
+
+    try {
+      const headers = getAuthHeaders();
+
+      const [respuestaMetricas, respuestaProductos] =
+        await Promise.all([
+          fetch(METRICAS_URL, { headers }),
+          fetch(PRODUCTOS_URL, { headers }),
+        ]);
+
+      if (
+        respuestaMetricas.status === 401 ||
+        respuestaProductos.status === 401
+      ) {
+        throw new Error(
+          'Tu sesión no es válida. Inicia sesión nuevamente.'
+        );
+      }
+
+      if (!respuestaMetricas.ok || !respuestaProductos.ok) {
+        throw new Error(
+          'No fue posible recuperar los datos del inventario.'
+        );
+      }
+
+      const datosMetricas = await respuestaMetricas.json();
+      const datosProductos = await respuestaProductos.json();
+
+      const listaProductos = Array.isArray(datosProductos)
+        ? datosProductos
+        : Array.isArray(datosProductos.results)
+          ? datosProductos.results
+          : [];
+
+      setMetricas(datosMetricas);
+      setProductos(listaProductos);
+    } catch (err) {
+      console.error('Error al cargar dashboard:', err);
+      setError(err.message || 'Error de conexión con el servidor.');
+      setMetricas(null);
+      setProductos([]);
+    } finally {
+      setCargando(false);
+    }
   };
 
-  const meses = [
-    { mes: 'Abr', v: 60, c: 40 },
-    { mes: 'May', v: 68, c: 44 },
-    { mes: 'Jun', v: 72, c: 47 },
-    { mes: 'Jul', v: 80, c: 52 },
-    { mes: 'Ago', v: 81, c: 53 },
-    { mes: 'Sep', v: 86, c: 55 },
-  ];
+  useEffect(() => {
+    cargarDashboard();
+  }, []);
+
+  // Solo utilizamos datos reales de inventario.
+  // Las métricas financieras simuladas del backend se ignoran.
+  const inversion = metricas?.inversion_bodega ?? 0;
+  const unidades = metricas?.unidades_stock ?? 0;
+  const totalProductos = metricas?.total_productos ?? 0;
+
+  const productosConStock = productos.filter(
+    (producto) => Number(producto.stock) > 0
+  ).length;
+
+  const productosSinStock = productos.filter(
+    (producto) => Number(producto.stock) === 0
+  ).length;
+
+  const valorProducto = (producto) =>
+    Number(producto.stock || 0) *
+    Number(producto.costo_promedio || 0);
+
+  const topProductos = [...productos]
+    .sort((a, b) => valorProducto(b) - valorProducto(a))
+    .slice(0, 5);
+
+  const valorMaximo = Math.max(
+    ...topProductos.map(valorProducto),
+    0
+  );
+
+  const resumenCategorias = Object.entries(CATEGORIAS).map(
+    ([codigo, nombre]) => {
+      const filtrados = productos.filter(
+        (producto) => producto.categoria === codigo
+      );
+
+      return {
+        codigo,
+        nombre,
+        cantidad: filtrados.length,
+        unidades: filtrados.reduce(
+          (total, producto) =>
+            total + Number(producto.stock || 0),
+          0
+        ),
+      };
+    }
+  );
+
+  const datosDisponibles = !cargando && !error && metricas;
 
   return (
     <Box>
-      {/* Título de Cabecera */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: '#17243B', mb: 0.5, letterSpacing: '-0.04em' }}>
-          Panel general
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#8190A5' }}>
-          Resumen ejecutivo de STB Computers, calculado en tiempo real con las compras, ventas e inventario perpetuo.
-        </Typography>
+      {/* ENCABEZADO */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <Box>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 800,
+              color: '#17243B',
+              mb: 0.5,
+              letterSpacing: '-0.04em',
+            }}
+          >
+            Panel general
+          </Typography>
+
+          <Typography
+            variant="body2"
+            sx={{ color: '#8190A5' }}
+          >
+            Resumen ejecutivo de STB Computers.
+            Indicadores conectados al inventario.
+          </Typography>
+        </Box>
+
+        <Button
+          variant="outlined"
+          startIcon={<RefreshIcon />}
+          onClick={cargarDashboard}
+          disabled={cargando}
+          sx={{
+            borderColor: '#DCE4F0',
+            color: '#4C67ED',
+            borderRadius: '10px',
+            textTransform: 'none',
+            fontWeight: 700,
+          }}
+        >
+          Actualizar datos
+        </Button>
       </Box>
 
-      {/* 1. Fila de 5 Tarjetas Superiores */}
-      <Grid container spacing={2.5} sx={{ mb: 3.5 }}>
-        {/* Tarjeta 1: Total en Bodega (WAC) */}
+      {/* ESTADOS DE CARGA */}
+      {cargando && (
+        <Box sx={{ mb: 3 }}>
+          <LinearProgress />
+          <Typography
+            variant="caption"
+            sx={{ color: '#8190A5', mt: 1, display: 'block' }}
+          >
+            Consultando información del servidor...
+          </Typography>
+        </Box>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* MÉTRICAS */}
+      <Grid container spacing={2.5} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Paper elevation={0} sx={cardStyle}>
-            <Typography variant="caption" sx={{ color: '#8290A5', fontWeight: 600, fontSize: '0.78rem' }}>
-              Inversión en Bodega (Costo)
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#24334E', my: 1, letterSpacing: '-0.03em' }}>
-              ${Number(metricas.inversion_bodega).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#4C67ED', fontWeight: 700 }}>
-              {metricas.unidades_stock} unidades físicas
-            </Typography>
-          </Paper>
+          <TarjetaMetrica
+            titulo="Inversión en Bodega (Costo)"
+            valor={
+              datosDisponibles
+                ? formatoMoneda(inversion)
+                : '—'
+            }
+            detalle={
+              datosDisponibles
+                ? `${formatoNumero(unidades)} unidades físicas`
+                : 'Sin datos disponibles'
+            }
+            icono={<Inventory2OutlinedIcon />}
+          />
         </Grid>
 
-        {/* Tarjeta 2: Ventas Netas */}
         <Grid item xs={12} sm={6} md={2.4}>
-          <Paper elevation={0} sx={cardStyle}>
-            <Typography variant="caption" sx={{ color: '#8290A5', fontWeight: 600, fontSize: '0.78rem' }}>
-              Ventas netas (Mes)
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#24334E', my: 1, letterSpacing: '-0.03em' }}>
-              ${Number(metricas.ventas_mes).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#198B77', fontWeight: 700 }}>
-              ↑ +12.4% vs mes anterior
-            </Typography>
-          </Paper>
+          <TarjetaMetrica
+            titulo="Ventas netas (Mes)"
+            pendiente
+            detalle="Pendiente: módulo de ventas"
+            icono={<ShoppingCartOutlinedIcon />}
+          />
         </Grid>
 
-        {/* Tarjeta 3: Utilidad Neta */}
         <Grid item xs={12} sm={6} md={2.4}>
-          <Paper elevation={0} sx={cardStyle}>
-            <Typography variant="caption" sx={{ color: '#8290A5', fontWeight: 600, fontSize: '0.78rem' }}>
-              Utilidad neta estimada
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#24334E', my: 1, letterSpacing: '-0.03em' }}>
-              ${Number(metricas.utilidad_neta).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#198B77', fontWeight: 700 }}>
-              Margen neto: 13.0%
-            </Typography>
-          </Paper>
+          <TarjetaMetrica
+            titulo="Utilidad neta"
+            pendiente
+            detalle="Pendiente: estados financieros"
+            icono={<TrendingUpOutlinedIcon />}
+          />
         </Grid>
 
-        {/* Tarjeta 4: Razón Corriente (Liquidez) */}
         <Grid item xs={12} sm={6} md={2.4}>
-          <Paper elevation={0} sx={cardStyle}>
-            <Typography variant="caption" sx={{ color: '#8290A5', fontWeight: 600, fontSize: '0.78rem' }}>
-              Razón corriente
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#24334E', my: 1, letterSpacing: '-0.03em' }}>
-              {metricas.razon_corriente}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#8290A5', fontWeight: 600 }}>
-              $1.82 activo por $1.00 pasivo
-            </Typography>
-          </Paper>
+          <TarjetaMetrica
+            titulo="Razón corriente"
+            pendiente
+            detalle="Pendiente: datos de liquidez"
+            icono={<AccountBalanceOutlinedIcon />}
+          />
         </Grid>
 
-        {/* Tarjeta 5: Catálogo Activo */}
         <Grid item xs={12} sm={6} md={2.4}>
-          <Paper elevation={0} sx={cardStyle}>
-            <Typography variant="caption" sx={{ color: '#8290A5', fontWeight: 600, fontSize: '0.78rem' }}>
-              Catálogo de Artículos
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#24334E', my: 1, letterSpacing: '-0.03em' }}>
-              {metricas.total_productos}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#8290A5', fontWeight: 600 }}>
-              Artículos registrados
-            </Typography>
-          </Paper>
+          <TarjetaMetrica
+            titulo="Catálogo de Artículos"
+            valor={datosDisponibles ? totalProductos : '—'}
+            detalle="Productos registrados"
+            icono={<CategoryOutlinedIcon />}
+          />
         </Grid>
       </Grid>
 
-      {/* 2. Sección Gráfica y Tabla de Inventario */}
-      <Grid container spacing={3}>
-        {/* Gráfico de Barras: Ventas vs Costos */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', border: '1px solid #E8EDF4', height: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#17243B' }}>
-                Ventas vs. Costos (Últimos 6 meses)
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#4C67ED' }} />
-                  <Typography variant="caption" sx={{ color: '#8290A5', fontSize: '0.7rem' }}>Ventas</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#91A8FB' }} />
-                  <Typography variant="caption" sx={{ color: '#8290A5', fontSize: '0.7rem' }}>Costos</Typography>
-                </Box>
-              </Box>
-            </Box>
+      {/* AVISO DE INTEGRACIÓN */}
+      <Alert
+        severity="info"
+        sx={{
+          mb: 3,
+          borderRadius: '12px',
+          '& .MuiAlert-message': { width: '100%' },
+        }}
+      >
+        Los indicadores de ventas, utilidad y liquidez se
+        habilitarán cuando estén integrados los módulos
+        financieros. Los valores del inventario se obtienen
+        actualmente de Django.
+      </Alert>
 
-            {/* Contenedor de barras */}
-            <Box
+      {/* RESUMEN DE INVENTARIO */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Paper
+            elevation={0}
+            sx={{ ...ESTILO_TARJETA, p: 3 }}
+          >
+            <Typography
+              variant="subtitle1"
               sx={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                height: 190,
-                borderBottom: '1px solid #EEF0F6',
-                pt: 2,
-                pb: 1,
-                px: 1,
+                fontWeight: 800,
+                color: '#17243B',
+                mb: 0.5,
               }}
             >
-              {meses.map((m, idx) => (
-                <Box key={idx} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.8, flex: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5 }}>
-                    <Box
-                      sx={{
-                        width: { xs: 14, sm: 20 },
-                        height: `${m.v * 1.8}px`,
-                        background: 'linear-gradient(180deg, #7187FF, #4B64EE)',
-                        borderRadius: '6px 6px 0 0',
-                      }}
-                    />
-                    <Box
-                      sx={{
-                        width: { xs: 14, sm: 20 },
-                        height: `${m.c * 1.8}px`,
-                        background: 'linear-gradient(180deg, #ADC0FF, #91A8FB)',
-                        borderRadius: '6px 6px 0 0',
-                      }}
-                    />
-                  </Box>
-                  <Typography variant="caption" sx={{ color: '#8290A5', fontWeight: 600, fontSize: '0.75rem' }}>
-                    {m.mes}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+              Productos por valor en inventario
+            </Typography>
+
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#8190A5',
+                display: 'block',
+                mb: 3,
+              }}
+            >
+              Cinco productos con mayor valoración
+              según existencias y costo promedio.
+            </Typography>
+
+            {!datosDisponibles ? (
+              <Typography color="text.secondary">
+                {cargando
+                  ? 'Cargando productos...'
+                  : 'Datos no disponibles.'}
+              </Typography>
+            ) : topProductos.length === 0 ? (
+              <Typography color="text.secondary">
+                No hay productos registrados.
+              </Typography>
+            ) : (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2.5,
+                }}
+              >
+                {topProductos.map((producto) => {
+                  const valor = valorProducto(producto);
+
+                  const porcentaje =
+                    valorMaximo > 0
+                      ? (valor / valorMaximo) * 100
+                      : 0;
+
+                  return (
+                    <Box key={producto.id}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: 2,
+                          mb: 1,
+                        }}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 700,
+                              color: '#24334E',
+                            }}
+                          >
+                            {producto.descripcion}
+                          </Typography>
+
+                          <Typography
+                            variant="caption"
+                            sx={{ color: '#8190A5' }}
+                          >
+                            {producto.codigo} ·{' '}
+                            {producto.stock} unidades
+                          </Typography>
+                        </Box>
+
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 800,
+                            color: '#4C67ED',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {formatoMoneda(valor)}
+                        </Typography>
+                      </Box>
+
+                      <LinearProgress
+                        variant="determinate"
+                        value={porcentaje}
+                        sx={{
+                          height: 9,
+                          borderRadius: 8,
+                          bgcolor: '#EEF1FF',
+                          '& .MuiLinearProgress-bar': {
+                            bgcolor: '#4C67ED',
+                            borderRadius: 8,
+                          },
+                        }}
+                      />
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
           </Paper>
         </Grid>
 
-        {/* Resumen de Inventario: Valuación a Costo Promedio (NIIF para PYMES) */}
         <Grid item xs={12} md={6}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', border: '1px solid #E8EDF4', height: '100%' }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#17243B', mb: 1 }}>
-              Inventario: Valuación Costo Promedio (WAC)
+          <Paper
+            elevation={0}
+            sx={{ ...ESTILO_TARJETA, p: 3 }}
+          >
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 800,
+                color: '#17243B',
+                mb: 0.5,
+              }}
+            >
+              Resumen del catálogo
             </Typography>
-            <Typography variant="caption" sx={{ color: '#8290A5', display: 'block', mb: 2 }}>
-              Sección 13 NIIF para las PYMES: Trazabilidad perpetua por compras y salidas.
+
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#8190A5',
+                display: 'block',
+                mb: 3,
+              }}
+            >
+              Distribución de artículos por categoría.
             </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={6}>
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: '#EEF1FF',
+                    borderRadius: '12px',
+                  }}
+                >
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontWeight: 800,
+                      color: '#4C67ED',
+                    }}
+                  >
+                    {datosDisponibles
+                      ? productosConStock
+                      : '—'}
+                  </Typography>
+
+                  <Typography
+                    variant="caption"
+                    sx={{ color: '#64748B' }}
+                  >
+                    Productos con stock
+                  </Typography>
+                </Box>
+              </Grid>
+
+              <Grid item xs={6}>
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: '#FFF6E6',
+                    borderRadius: '12px',
+                  }}
+                >
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontWeight: 800,
+                      color: '#B57822',
+                    }}
+                  >
+                    {datosDisponibles
+                      ? productosSinStock
+                      : '—'}
+                  </Typography>
+
+                  <Typography
+                    variant="caption"
+                    sx={{ color: '#64748B' }}
+                  >
+                    Productos sin stock
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
 
             <TableContainer>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ '& th': { color: '#8190A6', fontWeight: 700, fontSize: '0.72rem', py: 1.2 } }}>
-                    <TableCell>RUBRO CONTABLE</TableCell>
-                    <TableCell align="right">MÉTODO WAC</TableCell>
-                    <TableCell align="right">ESTADO</TableCell>
+                  <TableRow>
+                    <TableCell> CATEGORÍA </TableCell>
+                    <TableCell align="right">
+                      PRODUCTOS
+                    </TableCell>
+                    <TableCell align="right">
+                      UNIDADES
+                    </TableCell>
                   </TableRow>
                 </TableHead>
+
                 <TableBody>
-                  <TableRow hover>
-                    <TableCell sx={{ fontWeight: 600, color: '#17243B', py: 1.5 }}>
-                      Valor total del inventario final
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: '#4C67ED', py: 1.5 }}>
-                      ${Number(metricas.inversion_bodega).toFixed(2)}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Chip label="En Bodega" size="small" sx={{ bgcolor: '#EEF1FF', color: '#4C67ED', fontWeight: 700, fontSize: '0.7rem' }} />
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow hover>
-                    <TableCell sx={{ fontWeight: 600, color: '#17243B', py: 1.5 }}>
-                      Costo de ventas acumulado
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: '#24334E', py: 1.5 }}>
-                      $55,000.00
-                    </TableCell>
-                    <TableCell align="right">
-                      <Chip label="Devengado" size="small" sx={{ bgcolor: '#F4F7FF', color: '#64748B', fontWeight: 600, fontSize: '0.7rem' }} />
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow hover>
-                    <TableCell sx={{ fontWeight: 600, color: '#17243B', py: 1.5 }}>
-                      Rotación proyectada de inventarios
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: '#198B77', py: 1.5 }}>
-                      4.2 veces / año
-                    </TableCell>
-                    <TableCell align="right">
-                      <Chip label="Saludable" size="small" sx={{ bgcolor: '#E6F8F3', color: '#198B77', fontWeight: 700, fontSize: '0.7rem' }} />
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow hover>
-                    <TableCell sx={{ fontWeight: 600, color: '#17243B', py: 1.5 }}>
-                      Días promedio de inventario (EPI)
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: '#24334E', py: 1.5 }}>
-                      86 días
-                    </TableCell>
-                    <TableCell align="right">
-                      <Chip label="En rango" size="small" sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 600, fontSize: '0.7rem' }} />
-                    </TableCell>
-                  </TableRow>
+                  {datosDisponibles ? (
+                    resumenCategorias.map((categoria) => (
+                      <TableRow key={categoria.codigo}>
+                        <TableCell>
+                          {categoria.nombre}
+                        </TableCell>
+                        <TableCell align="right">
+                          {categoria.cantidad}
+                        </TableCell>
+                        <TableCell align="right">
+                          {categoria.unidades}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={3} align="center">
+                        Sin datos disponibles
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
           </Paper>
         </Grid>
       </Grid>
+
+      {/* VALUACIÓN CONTABLE */}
+      <Paper
+        elevation={0}
+        sx={{ ...ESTILO_TARJETA, p: 3 }}
+      >
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 800,
+            color: '#17243B',
+            mb: 0.5,
+          }}
+        >
+          Inventario: Valuación a Costo Promedio (WAC)
+        </Typography>
+
+        <Typography
+          variant="caption"
+          sx={{
+            color: '#8190A5',
+            display: 'block',
+            mb: 2,
+          }}
+        >
+          Valuación según existencias y costo promedio
+          registrado. La trazabilidad por compras y ventas
+          se integrará posteriormente.
+        </Typography>
+
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>INDICADOR</TableCell>
+                <TableCell align="right">VALOR</TableCell>
+                <TableCell align="right">ESTADO</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              <TableRow>
+                <TableCell>
+                  Valor total del inventario
+                </TableCell>
+                <TableCell align="right">
+                  {datosDisponibles
+                    ? formatoMoneda(inversion)
+                    : '—'}
+                </TableCell>
+                <TableCell align="right">
+                  <Chip
+                    label="Conectado"
+                    size="small"
+                    sx={{
+                      bgcolor: '#EEF1FF',
+                      color: '#4C67ED',
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+
+              <TableRow>
+                <TableCell>
+                  Unidades disponibles
+                </TableCell>
+                <TableCell align="right">
+                  {datosDisponibles
+                    ? formatoNumero(unidades)
+                    : '—'}
+                </TableCell>
+                <TableCell align="right">
+                  <Chip
+                    label="Conectado"
+                    size="small"
+                    sx={{
+                      bgcolor: '#EEF1FF',
+                      color: '#4C67ED',
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+
+              <TableRow>
+                <TableCell>
+                  Costo de ventas acumulado
+                </TableCell>
+                <TableCell align="right">—</TableCell>
+                <TableCell align="right">
+                  <Chip
+                    label="Pendiente"
+                    size="small"
+                    sx={{
+                      bgcolor: '#F1F5F9',
+                      color: '#64748B',
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+
+              <TableRow>
+                <TableCell>
+                  Rotación de inventarios
+                </TableCell>
+                <TableCell align="right">—</TableCell>
+                <TableCell align="right">
+                  <Chip
+                    label="Pendiente"
+                    size="small"
+                    sx={{
+                      bgcolor: '#F1F5F9',
+                      color: '#64748B',
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+
+              <TableRow>
+                <TableCell>
+                  Días promedio de inventario
+                </TableCell>
+                <TableCell align="right">—</TableCell>
+                <TableCell align="right">
+                  <Chip
+                    label="Pendiente"
+                    size="small"
+                    sx={{
+                      bgcolor: '#F1F5F9',
+                      color: '#64748B',
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </Box>
   );
 }
