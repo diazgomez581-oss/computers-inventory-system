@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'corsheaders',
     # Aplicación local
     'inventario',
+    'proveedores',
 ]
 
 MIDDLEWARE = [
@@ -158,3 +159,4 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

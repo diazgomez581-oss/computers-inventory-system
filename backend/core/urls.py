@@ -4,14 +4,24 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from inventario.views import ProductoViewSet, LoginView
+from proveedores.views import ProveedorViewSet
 
 
-# Rutas automáticas para el catálogo de productos
+# Rutas automáticas de la API
 router = DefaultRouter()
+
+# Catálogo de productos
 router.register(
     r'productos',
     ProductoViewSet,
     basename='productos'
+)
+
+# Directorio y registro de proveedores
+router.register(
+    r'proveedores',
+    ProveedorViewSet,
+    basename='proveedores'
 )
 
 
@@ -19,8 +29,11 @@ urlpatterns = [
     # Administrador de Django
     path('admin/', admin.site.urls),
 
-    # CRUD de productos y métricas del dashboard
-    path('api/', include(router.urls)),
+    # CRUD de productos y proveedores
+    path(
+        'api/',
+        include(router.urls)
+    ),
 
     # Inicio de sesión
     path(

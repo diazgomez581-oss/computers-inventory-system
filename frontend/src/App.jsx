@@ -4,6 +4,7 @@ import Navbar from './components/Sidebar';
 import Productos from './pages/Productos';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
+import Proveedores from './pages/Proveedores';
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000;
 const INACTIVITY_MESSAGE = 'Tu sesión ha expirado por 15 minutos de inactividad.';
@@ -135,7 +136,7 @@ function App() {
         {/* Vistas siguientes */}
         {currentView === 'kardex' && <h2>Tarjeta Kárdex a Costo Promedio (INV-02)</h2>}
         {currentView === 'compras' && <h2>Recepción de Compras (COMP-02)</h2>}
-        {currentView === 'proveedores' && <h2>Directorio de Proveedores (COMP-01)</h2>}
+        {currentView === 'proveedores' && <Proveedores />}
         {currentView === 'ventas' && <h2>Facturación y Ventas (VENT-01)</h2>}
         {currentView === 'gastos' && <h2>Gastos de Operación (FIN-02)</h2>}
         {currentView === 'estado_resultados' && <h2>Estado de Resultados (FIN-03)</h2>}
