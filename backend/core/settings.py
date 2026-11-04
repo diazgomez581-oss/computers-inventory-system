@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     # Aplicación local
     'inventario',
     'proveedores',
+    'gastos',
 ]
 
 MIDDLEWARE = [

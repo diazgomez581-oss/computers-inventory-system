@@ -47,4 +47,6 @@ urlpatterns = [
         'api/',
         include('inventario.urls')
     ),
+    # Gestión de gastos operativos
+    path('api/', include('gastos.urls')),
 ]

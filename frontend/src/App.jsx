@@ -5,6 +5,7 @@ import Productos from './pages/Productos';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Proveedores from './pages/Proveedores';
+import Gastos from './pages/Gastos';
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000;
 const INACTIVITY_MESSAGE = 'Tu sesión ha expirado por 15 minutos de inactividad.';
@@ -138,7 +139,7 @@ function App() {
         {currentView === 'compras' && <h2>Recepción de Compras (COMP-02)</h2>}
         {currentView === 'proveedores' && <Proveedores />}
         {currentView === 'ventas' && <h2>Facturación y Ventas (VENT-01)</h2>}
-        {currentView === 'gastos' && <h2>Gastos de Operación (FIN-02)</h2>}
+        {currentView === 'gastos' && <Gastos />}
         {currentView === 'estado_resultados' && <h2>Estado de Resultados (FIN-03)</h2>}
         {currentView === 'balance_general' && <h2>Balance General (FIN-03)</h2>}
         {currentView === 'ratios' && <h2>Razones Financieras (FIN-03)</h2>}
