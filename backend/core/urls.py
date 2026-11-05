@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from inventario.views import ProductoViewSet, LoginView
 from proveedores.views import ProveedorViewSet
-
+from ventas.views import VentaViewSet
 
 # Rutas automáticas de la API
 router = DefaultRouter()
@@ -24,6 +24,12 @@ router.register(
     basename='proveedores'
 )
 
+# Registro de ventas
+router.register(
+    r"ventas",
+    VentaViewSet,
+    basename="ventas"
+)
 
 urlpatterns = [
     # Administrador de Django

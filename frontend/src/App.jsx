@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Proveedores from './pages/Proveedores';
 import Gastos from './pages/Gastos';
+import Ventas from './pages/Ventas';
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000;
 const INACTIVITY_MESSAGE = 'Tu sesión ha expirado por 15 minutos de inactividad.';
@@ -138,7 +139,7 @@ function App() {
         {currentView === 'kardex' && <h2>Tarjeta Kárdex a Costo Promedio (INV-02)</h2>}
         {currentView === 'compras' && <h2>Recepción de Compras (COMP-02)</h2>}
         {currentView === 'proveedores' && <Proveedores />}
-        {currentView === 'ventas' && <h2>Facturación y Ventas (VENT-01)</h2>}
+        {currentView === 'ventas' && <Ventas />}
         {currentView === 'gastos' && <Gastos />}
         {currentView === 'estado_resultados' && <h2>Estado de Resultados (FIN-03)</h2>}
         {currentView === 'balance_general' && <h2>Balance General (FIN-03)</h2>}
