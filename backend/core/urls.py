@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from inventario.views import ProductoViewSet, LoginView
 from proveedores.views import ProveedorViewSet
+from compras.views import CompraViewSet
 
 
 # Rutas automáticas de la API
@@ -24,12 +25,19 @@ router.register(
     basename='proveedores'
 )
 
+# COMP-02: Recepción y registro de compras
+router.register(
+    r'compras',
+    CompraViewSet,
+    basename='compras'
+)
+
 
 urlpatterns = [
     # Administrador de Django
     path('admin/', admin.site.urls),
 
-    # CRUD de productos y proveedores
+    # CRUD de productos, proveedores y compras
     path(
         'api/',
         include(router.urls)
@@ -47,6 +55,10 @@ urlpatterns = [
         'api/',
         include('inventario.urls')
     ),
+
     # Gestión de gastos operativos
-    path('api/', include('gastos.urls')),
+    path(
+        'api/',
+        include('gastos.urls')
+    ),
 ]
