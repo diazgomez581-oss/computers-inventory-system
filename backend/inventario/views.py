@@ -61,7 +61,6 @@ class ProductoViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def metricas_dashboard(self, request):
-
         productos = Producto.objects.all()
 
         total_inversion = sum(
@@ -79,15 +78,11 @@ class ProductoViewSet(viewsets.ModelViewSet):
         total_catalogo = productos.count()
 
         return Response({
-            'inversion_bodega': round(total_inversion, 2),
+            'inversion_bodega': str(
+                total_inversion.quantize(Decimal('0.01'))
+            ),
             'unidades_stock': total_items_stock,
             'total_productos': total_catalogo,
-
-            # Datos provisionales hasta completar ventas y finanzas.
-            'ventas_mes': 86400.00,
-            'utilidad_neta': 11250.00,
-            'razon_corriente': 1.82,
-            'gastos_mes': 2450.00,
         })
 
 
@@ -95,7 +90,6 @@ class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-
         valor_inventario = ExpressionWrapper(
             F('stock') * F('costo_promedio'),
             output_field=DecimalField(
@@ -128,7 +122,6 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-
         username = request.data.get('username')
         password = request.data.get('password')
 
