@@ -3,8 +3,8 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import Venta, DetalleVenta
 from inventario.models import Producto
+from .models import Venta, DetalleVenta
 from .services import registrar_venta
 
 
@@ -18,17 +18,18 @@ class ProductoVentaSerializer(serializers.ModelSerializer):
             "marca",
             "modelo",
             "stock",
+            "costo_promedio",
         ]
 
 
 class DetalleVentaSerializer(serializers.ModelSerializer):
     producto_codigo = serializers.CharField(
         source="producto.codigo",
-        read_only=True
+        read_only=True,
     )
     producto_descripcion = serializers.CharField(
         source="producto.descripcion",
-        read_only=True
+        read_only=True,
     )
 
     class Meta:
@@ -49,9 +50,8 @@ class DetalleVentaSerializer(serializers.ModelSerializer):
 class VentaSerializer(serializers.ModelSerializer):
     detalles = DetalleVentaSerializer(
         many=True,
-        read_only=True
+        read_only=True,
     )
-
     registrado_por_nombre = serializers.SerializerMethodField()
 
     class Meta:
@@ -78,11 +78,12 @@ class ProductoEntradaSerializer(serializers.Serializer):
     producto_id = serializers.IntegerField(min_value=1)
     cantidad = serializers.IntegerField(min_value=1)
 
-    # Precio final al consumidor, IVA incluido.
-    precio_unitario = serializers.DecimalField(
+    # Recargo porcentual sobre el costo WAC.
+    # No se recibe el precio final del navegador.
+    porcentaje_ganancia = serializers.DecimalField(
         max_digits=12,
-        decimal_places=2,
-        min_value=Decimal("0.01")
+        decimal_places=4,
+        min_value=Decimal("0.0001"),
     )
 
 
@@ -91,12 +92,12 @@ class CrearVentaSerializer(serializers.Serializer):
         max_length=150,
         required=False,
         allow_blank=True,
-        default="Consumidor final"
+        default="Consumidor final",
     )
 
     productos = ProductoEntradaSerializer(
         many=True,
-        allow_empty=False
+        allow_empty=False,
     )
 
     def validate_productos(self, productos):

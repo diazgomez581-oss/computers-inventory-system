@@ -10,13 +10,14 @@ from .models import Venta, DetalleVenta
 
 
 CENTAVO = Decimal("0.01")
+CIEN = Decimal("100")
 IVA_FACTOR = Decimal("1.13")
 
 
 def redondear(valor):
     return Decimal(valor).quantize(
         CENTAVO,
-        rounding=ROUND_HALF_UP
+        rounding=ROUND_HALF_UP,
     )
 
 
@@ -25,9 +26,11 @@ def registrar_venta(*, usuario, cliente, productos):
     """
     Registra una venta multiproducto.
 
-    Los precios recibidos incluyen IVA del 13%.
-    El backend calcula los importes y registra
-    las salidas de inventario y Kárdex.
+    Precio final unitario:
+    WAC * (1 + porcentaje_ganancia / 100) * 1.13
+
+    El precio se calcula en el backend usando
+    el costo promedio actual del inventario.
     """
 
     if not usuario or not usuario.is_authenticated:
@@ -40,7 +43,10 @@ def registrar_venta(*, usuario, cliente, productos):
             "Debe agregar al menos un producto."
         )
 
-    ids = [item["producto_id"] for item in productos]
+    ids = [
+        item["producto_id"]
+        for item in productos
+    ]
 
     if len(ids) != len(set(ids)):
         raise ValidationError(
@@ -61,7 +67,9 @@ def registrar_venta(*, usuario, cliente, productos):
     for item in productos:
         producto_id = item["producto_id"]
         cantidad = item["cantidad"]
-        precio = redondear(item["precio_unitario"])
+        porcentaje = Decimal(
+            str(item["porcentaje_ganancia"])
+        )
 
         producto = productos_db.get(producto_id)
 
@@ -75,9 +83,9 @@ def registrar_venta(*, usuario, cliente, productos):
                 "La cantidad debe ser mayor que cero."
             )
 
-        if precio <= 0:
+        if not porcentaje.is_finite() or porcentaje <= 0:
             raise ValidationError(
-                "El precio debe ser mayor que cero."
+                "El porcentaje de ganancia debe ser positivo."
             )
 
         if producto.stock < cantidad:
@@ -88,9 +96,32 @@ def registrar_venta(*, usuario, cliente, productos):
                 f"solicitado: {cantidad}."
             )
 
-        importe = redondear(precio * cantidad)
-
         costo_unitario = producto.costo_promedio
+
+        if costo_unitario <= 0:
+            raise ValidationError(
+                f"{producto.descripcion} no tiene "
+                "un costo promedio válido."
+            )
+
+        precio = redondear(
+            costo_unitario
+            * (Decimal("1") + porcentaje / CIEN)
+            * IVA_FACTOR
+        )
+
+        if precio <= 0:
+            raise ValidationError(
+                "El precio calculado debe ser positivo."
+            )
+
+        # Capacidad del DecimalField del modelo.
+        if precio >= Decimal("10000000000"):
+            raise ValidationError(
+                "El porcentaje genera un precio demasiado alto."
+            )
+
+        importe = redondear(precio * cantidad)
 
         costo_linea = redondear(
             costo_unitario * cantidad
@@ -109,13 +140,18 @@ def registrar_venta(*, usuario, cliente, productos):
         costo_total_venta += costo_linea
 
     total_cobrado = redondear(total_cobrado)
+
     subtotal_neto = redondear(
         total_cobrado / IVA_FACTOR
     )
+
     iva_debito = total_cobrado - subtotal_neto
 
     venta = Venta.objects.create(
-        cliente=(cliente or "Consumidor final").strip(),
+        cliente=(
+            (cliente or "Consumidor final").strip()
+            or "Consumidor final"
+        ),
         subtotal=subtotal_neto,
         iva=iva_debito,
         total=total_cobrado,
@@ -124,7 +160,7 @@ def registrar_venta(*, usuario, cliente, productos):
         estado="EMITIDA",
     )
 
-    # Número correlativo interno, no número fiscal DTE.
+    # Correlativo interno, no número fiscal DTE.
     venta.numero_comprobante = f"VTA-{venta.id:08d}"
     venta.save(update_fields=["numero_comprobante"])
 
@@ -132,12 +168,12 @@ def registrar_venta(*, usuario, cliente, productos):
         producto = item["producto"]
         cantidad = item["cantidad"]
 
-        # Actualización condicional para evitar stock negativo,
-        # incluso cuando varias ventas compiten por existencias.
         actualizados = Producto.objects.filter(
             pk=producto.pk,
-            stock__gte=cantidad
-        ).update(stock=F("stock") - cantidad)
+            stock__gte=cantidad,
+        ).update(
+            stock=F("stock") - cantidad
+        )
 
         if actualizados != 1:
             raise ValidationError(
@@ -161,9 +197,7 @@ def registrar_venta(*, usuario, cliente, productos):
         MovimientoKardex.objects.create(
             producto=producto,
             tipo="SALIDA",
-            detalle=(
-                f"Venta {venta.numero_comprobante}"
-            ),
+            detalle=f"Venta {venta.numero_comprobante}",
             cantidad_entrada=0,
             costo_unitario_entrada=Decimal("0.0000"),
             total_entrada=Decimal("0.00"),
