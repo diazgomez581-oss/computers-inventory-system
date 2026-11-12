@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { API_URL } from '../api';
+
 import {
   Box,
   Typography,
@@ -14,7 +15,8 @@ import {
   TableRow,
   Chip,
   Alert,
-  CircularProgress,
+  TextField,
+  MenuItem,
   LinearProgress,
   Button,
 } from '@mui/material';
@@ -26,42 +28,26 @@ import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlin
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
-const METRICAS_URL = `${API_URL}/api/productos/metricas_dashboard/`;
-const PRODUCTOS_URL = `${API_URL}/api/productos/`;
+// ============================================
+// CONFIGURACIÓN DE API
+// ============================================
 
-const getAuthHeaders = () => {
-  try {
-    const user = JSON.parse(
-      localStorage.getItem('stb_user') || 'null'
-    );
+const BASE_API = String(API_URL || '')
+  .replace(/\/+$/, '')
+  .replace(/\/api$/, '');
 
-    return user?.token
-      ? { Authorization: `Token ${user.token}` }
-      : {};
-  } catch {
-    return {};
-  }
+const URLS = {
+  metricas: `${BASE_API}/api/productos/metricas_dashboard/`,
+  productos: `${BASE_API}/api/productos/`,
+  ventas: `${BASE_API}/api/ventas/resumen/`,
+  gastos: `${BASE_API}/api/gastos/resumen-mensual/`,
 };
 
-const formatoMoneda = (valor) =>
-  Number(valor || 0).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
-const formatoNumero = (valor) =>
-  Number(valor || 0).toLocaleString('en-US');
-
-const ESTILO_TARJETA = {
-  p: 2.5,
-  borderRadius: '16px',
-  border: '1px solid #E8EDF4',
-  backgroundColor: '#FFFFFF',
-  boxShadow: '0 5px 18px rgba(22, 44, 78, 0.03)',
-  height: '100%',
-};
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril',
+  'Mayo', 'Junio', 'Julio', 'Agosto',
+  'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
 
 const CATEGORIAS = {
   COMPONENTES: 'Componentes',
@@ -70,6 +56,123 @@ const CATEGORIAS = {
   REDES: 'Redes',
   ACCESORIOS: 'Accesorios',
 };
+
+// ============================================
+// ESTILOS
+// ============================================
+
+const COLORES = {
+  titulo: '#17243B',
+  texto: '#24334E',
+  secundario: '#8190A5',
+  principal: '#4C67ED',
+  borde: '#E8EDF4',
+};
+
+const ESTILO_TARJETA = {
+  p: 2.5,
+  borderRadius: '16px',
+  border: `1px solid ${COLORES.borde}`,
+  backgroundColor: '#FFFFFF',
+  boxShadow: '0 5px 18px rgba(22, 44, 78, 0.03)',
+  height: '100%',
+};
+
+const ESTILO_TITULO = {
+  fontWeight: 800,
+  color: COLORES.titulo,
+  mb: 0.5,
+};
+
+const ESTILO_DESCRIPCION = {
+  color: COLORES.secundario,
+  display: 'block',
+  mb: 3,
+};
+
+const ESTILO_TABLA = {
+  '& .MuiTableCell-head': {
+    fontWeight: 800,
+    color: '#64748B',
+    fontSize: '0.72rem',
+    backgroundColor: '#F8FAFC',
+  },
+  '& .MuiTableCell-body': {
+    color: COLORES.texto,
+    borderColor: '#EEF2F7',
+  },
+};
+
+// ============================================
+// FUNCIONES AUXILIARES
+// ============================================
+
+function getAuthHeaders() {
+  try {
+    const usuario = JSON.parse(
+      localStorage.getItem('stb_user') || 'null'
+    );
+
+    return usuario?.token
+      ? { Authorization: `Token ${usuario.token}` }
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function formatoMoneda(valor) {
+  const numero = Number(valor);
+
+  if (!Number.isFinite(numero)) return '—';
+
+  return numero.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatoNumero(valor) {
+  const numero = Number(valor);
+
+  if (!Number.isFinite(numero)) return '—';
+
+  return numero.toLocaleString('en-US');
+}
+
+function valorProducto(producto) {
+  return (
+    Number(producto.stock || 0) *
+    Number(producto.costo_promedio || 0)
+  );
+}
+
+async function consultarAPI(url, nombre, signal) {
+  const respuesta = await fetch(url, {
+    headers: getAuthHeaders(),
+    signal,
+  });
+
+  if (respuesta.status === 401 || respuesta.status === 403) {
+    throw new Error(
+      `${nombre}: tu sesión no tiene autorización. Inicia sesión nuevamente.`
+    );
+  }
+
+  if (!respuesta.ok) {
+    throw new Error(
+      `${nombre}: no fue posible obtener la información (HTTP ${respuesta.status}).`
+    );
+  }
+
+  return respuesta.json();
+}
+
+// ============================================
+// COMPONENTE: TARJETA DE MÉTRICA
+// ============================================
 
 function TarjetaMetrica({
   titulo,
@@ -100,7 +203,13 @@ function TarjetaMetrica({
           {titulo}
         </Typography>
 
-        <Box sx={{ color: pendiente ? '#94A3B8' : '#4C67ED' }}>
+        <Box
+          sx={{
+            color: pendiente
+              ? '#94A3B8'
+              : COLORES.principal,
+          }}
+        >
           {icono}
         </Box>
       </Box>
@@ -109,7 +218,7 @@ function TarjetaMetrica({
         variant="h5"
         sx={{
           fontWeight: 800,
-          color: pendiente ? '#94A3B8' : '#24334E',
+          color: pendiente ? '#94A3B8' : COLORES.texto,
           letterSpacing: '-0.03em',
           mb: 1,
         }}
@@ -130,116 +239,328 @@ function TarjetaMetrica({
   );
 }
 
+// ============================================
+// COMPONENTE: ESTADO DE CONEXIÓN
+// ============================================
+
+function EstadoIndicador({ disponible, pendiente = false }) {
+  const texto = pendiente
+    ? 'Pendiente'
+    : disponible
+      ? 'Conectado'
+      : 'Sin datos';
+
+  return (
+    <Chip
+      label={texto}
+      size="small"
+      sx={{
+        bgcolor: pendiente
+          ? '#F1F5F9'
+          : disponible
+            ? '#EEF1FF'
+            : '#FFF6E6',
+        color: pendiente
+          ? '#64748B'
+          : disponible
+            ? COLORES.principal
+            : '#B57822',
+        fontWeight: 700,
+      }}
+    />
+  );
+}
+
+// ============================================
+// COMPONENTE: FILA DE INDICADOR
+// ============================================
+
+function FilaIndicador({
+  nombre,
+  valor,
+  disponible,
+  pendiente = false,
+}) {
+  return (
+    <TableRow>
+      <TableCell>{nombre}</TableCell>
+
+      <TableCell align="right">
+        {disponible && !pendiente ? valor : '—'}
+      </TableCell>
+
+      <TableCell align="right">
+        <EstadoIndicador
+          disponible={disponible}
+          pendiente={pendiente}
+        />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ============================================
+// DASHBOARD PRINCIPAL
+// ============================================
+
 export default function Dashboard() {
+  const hoy = new Date();
+
+  const [anio, setAnio] = useState(hoy.getFullYear());
+  const [mes, setMes] = useState(hoy.getMonth() + 1);
+
   const [metricas, setMetricas] = useState(null);
-  const [productos, setProductos] = useState([]);
+  const [productos, setProductos] = useState(null);
+  const [ventas, setVentas] = useState(null);
+  const [gastos, setGastos] = useState(null);
+
   const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState('');
+  const [errores, setErrores] = useState([]);
+  const [revision, setRevision] = useState(0);
 
-  const cargarDashboard = async () => {
-    setCargando(true);
-    setError('');
-
-    try {
-      const headers = getAuthHeaders();
-
-      const [respuestaMetricas, respuestaProductos] =
-        await Promise.all([
-          fetch(METRICAS_URL, { headers }),
-          fetch(PRODUCTOS_URL, { headers }),
-        ]);
-
-      if (
-        respuestaMetricas.status === 401 ||
-        respuestaProductos.status === 401
-      ) {
-        throw new Error(
-          'Tu sesión no es válida. Inicia sesión nuevamente.'
-        );
-      }
-
-      if (!respuestaMetricas.ok || !respuestaProductos.ok) {
-        throw new Error(
-          'No fue posible recuperar los datos del inventario.'
-        );
-      }
-
-      const datosMetricas = await respuestaMetricas.json();
-      const datosProductos = await respuestaProductos.json();
-
-      const listaProductos = Array.isArray(datosProductos)
-        ? datosProductos
-        : Array.isArray(datosProductos.results)
-          ? datosProductos.results
-          : [];
-
-      setMetricas(datosMetricas);
-      setProductos(listaProductos);
-    } catch (err) {
-      console.error('Error al cargar dashboard:', err);
-      setError(err.message || 'Error de conexión con el servidor.');
-      setMetricas(null);
-      setProductos([]);
-    } finally {
-      setCargando(false);
-    }
-  };
+  // ==========================================
+  // CONSULTAR INFORMACIÓN REAL DE DJANGO
+  // ==========================================
 
   useEffect(() => {
-    cargarDashboard();
-  }, []);
+    const controller = new AbortController();
+    let activo = true;
 
-  // Solo utilizamos datos reales de inventario.
-  // Las métricas financieras simuladas del backend se ignoran.
+    async function cargarDashboard() {
+      setCargando(true);
+      setErrores([]);
+
+      setMetricas(null);
+      setProductos(null);
+      setVentas(null);
+      setGastos(null);
+
+      const periodo = `anio=${anio}&mes=${mes}`;
+
+      const solicitudes = [
+        consultarAPI(
+          URLS.metricas,
+          'Inventario',
+          controller.signal
+        ),
+        consultarAPI(
+          URLS.productos,
+          'Productos',
+          controller.signal
+        ),
+        consultarAPI(
+          `${URLS.ventas}?${periodo}`,
+          'Ventas',
+          controller.signal
+        ),
+        consultarAPI(
+          `${URLS.gastos}?${periodo}`,
+          'Gastos',
+          controller.signal
+        ),
+      ];
+
+      try {
+        const resultados = await Promise.allSettled(
+          solicitudes
+        );
+
+        if (!activo) return;
+
+        const mensajes = [];
+
+        resultados.forEach((resultado, indice) => {
+          if (resultado.status === 'rejected') {
+            if (resultado.reason?.name !== 'AbortError') {
+              mensajes.push(
+                resultado.reason?.message ||
+                'Error de conexión con el servidor.'
+              );
+            }
+            return;
+          }
+
+          const datos = resultado.value;
+
+          if (indice === 0) {
+            setMetricas(datos);
+          }
+
+          if (indice === 1) {
+            if (Array.isArray(datos)) {
+              setProductos(datos);
+            } else if (Array.isArray(datos?.results)) {
+              setProductos(datos.results);
+            } else {
+              mensajes.push(
+                'Productos: formato de respuesta no reconocido.'
+              );
+            }
+          }
+
+          if (indice === 2) {
+            setVentas(datos);
+          }
+
+          if (indice === 3) {
+            setGastos(datos);
+          }
+        });
+
+        setErrores(mensajes);
+      } catch (error) {
+        if (activo && error.name !== 'AbortError') {
+          setErrores([
+            error.message || 'Error al cargar el Dashboard.',
+          ]);
+        }
+      } finally {
+        if (activo) {
+          setCargando(false);
+        }
+      }
+    }
+
+    cargarDashboard();
+
+    return () => {
+      activo = false;
+      controller.abort();
+    };
+  }, [anio, mes, revision]);
+
+  // ==========================================
+  // DISPONIBILIDAD DE INFORMACIÓN
+  // ==========================================
+
+  const inventarioDisponible = metricas !== null;
+  const productosDisponibles = productos !== null;
+  const ventasDisponibles = ventas !== null;
+  const gastosDisponibles = gastos !== null;
+
+  const finanzasDisponibles =
+    ventasDisponibles && gastosDisponibles;
+
+  // ==========================================
+  // INDICADORES DE INVENTARIO
+  // ==========================================
+
   const inversion = metricas?.inversion_bodega ?? 0;
   const unidades = metricas?.unidades_stock ?? 0;
   const totalProductos = metricas?.total_productos ?? 0;
 
-  const productosConStock = productos.filter(
+  // ==========================================
+  // INDICADORES DE VENTAS
+  // ==========================================
+
+  const ventasNetas = Number(
+    ventas?.ventas_netas ?? 0
+  );
+
+  const costoVentas = Number(
+    ventas?.costo_ventas ?? 0
+  );
+
+  const ivaDebito = Number(
+    ventas?.iva_debito ?? 0
+  );
+
+  const totalCobrado = Number(
+    ventas?.total_cobrado ?? 0
+  );
+
+  const cantidadVentas = Number(
+    ventas?.cantidad_ventas ?? 0
+  );
+
+  const utilidadBruta =
+    ventasNetas - costoVentas;
+
+  // ==========================================
+  // INDICADORES DE GASTOS
+  // ==========================================
+
+  const gastosAdministracion = Number(
+    gastos?.total_administracion ?? 0
+  );
+
+  const gastosVenta = Number(
+    gastos?.total_venta ?? 0
+  );
+
+  const totalGastos = Number(
+    gastos?.total_gastos ?? 0
+  );
+
+  const cantidadGastos = Number(
+    gastos?.cantidad_registros ?? 0
+  );
+
+  // ==========================================
+  // UTILIDAD OPERATIVA REAL
+  // ==========================================
+
+  const utilidadOperativa =
+    utilidadBruta - totalGastos;
+
+  // ==========================================
+  // RESUMEN DEL CATÁLOGO
+  // ==========================================
+
+  const listaProductos = productos ?? [];
+
+  const productosConStock = listaProductos.filter(
     (producto) => Number(producto.stock) > 0
   ).length;
 
-  const productosSinStock = productos.filter(
-    (producto) => Number(producto.stock) === 0
+  const productosSinStock = listaProductos.filter(
+    (producto) => Number(producto.stock) <= 0
   ).length;
 
-  const valorProducto = (producto) =>
-    Number(producto.stock || 0) *
-    Number(producto.costo_promedio || 0);
-
-  const topProductos = [...productos]
+  const topProductos = [...listaProductos]
     .sort((a, b) => valorProducto(b) - valorProducto(a))
     .slice(0, 5);
 
   const valorMaximo = Math.max(
-    ...topProductos.map(valorProducto),
-    0
+    0,
+    ...topProductos.map(valorProducto)
   );
 
-  const resumenCategorias = Object.entries(CATEGORIAS).map(
-    ([codigo, nombre]) => {
-      const filtrados = productos.filter(
-        (producto) => producto.categoria === codigo
-      );
+  const resumenCategorias = Object.entries(
+    CATEGORIAS
+  ).map(([codigo, nombre]) => {
+    const filtrados = listaProductos.filter(
+      (producto) => producto.categoria === codigo
+    );
 
-      return {
-        codigo,
-        nombre,
-        cantidad: filtrados.length,
-        unidades: filtrados.reduce(
-          (total, producto) =>
-            total + Number(producto.stock || 0),
-          0
-        ),
-      };
-    }
-  );
+    return {
+      codigo,
+      nombre,
+      cantidad: filtrados.length,
+      unidades: filtrados.reduce(
+        (total, producto) =>
+          total + Number(producto.stock || 0),
+        0
+      ),
+    };
+  });
 
-  const datosDisponibles = !cargando && !error && metricas;
+  const actualizarDatos = () => {
+    setRevision((valor) => valor + 1);
+  };
+
+  const periodoTexto = `${MESES[mes - 1]} ${anio}`;
+
+  // ==========================================
+  // INTERFAZ
+  // ==========================================
 
   return (
     <Box>
-      {/* ENCABEZADO */}
+      {/* ======================================
+          ENCABEZADO
+      ====================================== */}
+
       <Box
         sx={{
           display: 'flex',
@@ -255,7 +576,7 @@ export default function Dashboard() {
             variant="h4"
             sx={{
               fontWeight: 800,
-              color: '#17243B',
+              color: COLORES.titulo,
               mb: 0.5,
               letterSpacing: '-0.04em',
             }}
@@ -265,151 +586,406 @@ export default function Dashboard() {
 
           <Typography
             variant="body2"
-            sx={{ color: '#8190A5' }}
+            sx={{ color: COLORES.secundario }}
           >
             Resumen ejecutivo de STB Computers.
-            Indicadores conectados al inventario.
+            Indicadores reales de inventario,
+            ventas y gastos operativos.
           </Typography>
         </Box>
 
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={cargarDashboard}
-          disabled={cargando}
+        <Box
           sx={{
-            borderColor: '#DCE4F0',
-            color: '#4C67ED',
-            borderRadius: '10px',
-            textTransform: 'none',
-            fontWeight: 700,
+            display: 'flex',
+            gap: 1.5,
+            flexWrap: 'wrap',
+            alignItems: 'center',
           }}
         >
-          Actualizar datos
-        </Button>
+          <TextField
+            select
+            size="small"
+            label="Mes"
+            value={mes}
+            onChange={(evento) =>
+              setMes(Number(evento.target.value))
+            }
+            sx={{ minWidth: 145 }}
+          >
+            {MESES.map((nombre, indice) => (
+              <MenuItem
+                key={nombre}
+                value={indice + 1}
+              >
+                {nombre}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            size="small"
+            label="Año"
+            type="number"
+            value={anio}
+            onChange={(evento) => {
+              const valor = Number(evento.target.value);
+
+              if (valor >= 2000 && valor <= 9999) {
+                setAnio(valor);
+              }
+            }}
+            inputProps={{
+              min: 2000,
+              max: 9999,
+            }}
+            sx={{ width: 110 }}
+          />
+
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={actualizarDatos}
+            disabled={cargando}
+            sx={{
+              borderColor: '#DCE4F0',
+              color: COLORES.principal,
+              borderRadius: '10px',
+              textTransform: 'none',
+              fontWeight: 700,
+              minHeight: 40,
+            }}
+          >
+            Actualizar datos
+          </Button>
+        </Box>
       </Box>
 
-      {/* ESTADOS DE CARGA */}
+      {/* ======================================
+          ESTADOS DE CARGA Y ERRORES
+      ====================================== */}
+
       {cargando && (
         <Box sx={{ mb: 3 }}>
           <LinearProgress />
+
           <Typography
             variant="caption"
-            sx={{ color: '#8190A5', mt: 1, display: 'block' }}
+            sx={{
+              color: COLORES.secundario,
+              mt: 1,
+              display: 'block',
+            }}
           >
             Consultando información del servidor...
           </Typography>
         </Box>
       )}
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+      {errores.map((mensaje, indice) => (
+        <Alert
+          key={`${indice}-${mensaje}`}
+          severity="error"
+          sx={{ mb: 2, borderRadius: '12px' }}
+        >
+          {mensaje}
         </Alert>
-      )}
+      ))}
 
-      {/* MÉTRICAS */}
+      {/* ======================================
+          TARJETAS PRINCIPALES
+      ====================================== */}
+
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
           <TarjetaMetrica
             titulo="Inversión en Bodega (Costo)"
             valor={
-              datosDisponibles
+              inventarioDisponible
                 ? formatoMoneda(inversion)
                 : '—'
             }
             detalle={
-              datosDisponibles
+              inventarioDisponible
                 ? `${formatoNumero(unidades)} unidades físicas`
-                : 'Sin datos disponibles'
+                : 'Información no disponible'
             }
             icono={<Inventory2OutlinedIcon />}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
           <TarjetaMetrica
             titulo="Ventas netas (Mes)"
-            pendiente
-            detalle="Pendiente: módulo de ventas"
+            valor={
+              ventasDisponibles
+                ? formatoMoneda(ventasNetas)
+                : '—'
+            }
+            detalle={
+              ventasDisponibles
+                ? `${formatoNumero(cantidadVentas)} ventas emitidas`
+                : 'Información no disponible'
+            }
             icono={<ShoppingCartOutlinedIcon />}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
           <TarjetaMetrica
-            titulo="Utilidad neta"
-            pendiente
-            detalle="Pendiente: estados financieros"
+            titulo="Utilidad operativa"
+            valor={
+              finanzasDisponibles
+                ? formatoMoneda(utilidadOperativa)
+                : '—'
+            }
+            detalle={
+              finanzasDisponibles
+                ? 'Ventas netas - costo - gastos'
+                : 'Requiere ventas y gastos'
+            }
             icono={<TrendingUpOutlinedIcon />}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
           <TarjetaMetrica
             titulo="Razón corriente"
             pendiente
-            detalle="Pendiente: datos de liquidez"
+            detalle="Pendiente: activos y pasivos corrientes"
             icono={<AccountBalanceOutlinedIcon />}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
           <TarjetaMetrica
             titulo="Catálogo de Artículos"
-            valor={datosDisponibles ? totalProductos : '—'}
+            valor={
+              inventarioDisponible
+                ? formatoNumero(totalProductos)
+                : '—'
+            }
             detalle="Productos registrados"
             icono={<CategoryOutlinedIcon />}
           />
         </Grid>
       </Grid>
 
-      {/* AVISO DE INTEGRACIÓN */}
+      {/* ======================================
+          INFORMACIÓN DEL PERÍODO
+      ====================================== */}
+
       <Alert
         severity="info"
         sx={{
           mb: 3,
           borderRadius: '12px',
-          '& .MuiAlert-message': { width: '100%' },
+          '& .MuiAlert-message': {
+            width: '100%',
+          },
         }}
       >
-        Los indicadores de ventas, utilidad y liquidez se
-        habilitarán cuando estén integrados los módulos
-        financieros. Los valores del inventario se obtienen
-        actualmente de Django.
+        Los indicadores de ventas, costos y gastos
+        corresponden a <strong>{periodoTexto}</strong>.
+        El inventario representa las existencias
+        actuales valorizadas a costo promedio WAC.
+        La razón corriente permanece pendiente
+        hasta disponer de activos y pasivos corrientes.
       </Alert>
 
-      {/* RESUMEN DE INVENTARIO */}
+      {/* ======================================
+          RESUMEN FINANCIERO
+      ====================================== */}
+
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper
             elevation={0}
             sx={{ ...ESTILO_TARJETA, p: 3 }}
           >
             <Typography
               variant="subtitle1"
-              sx={{
-                fontWeight: 800,
-                color: '#17243B',
-                mb: 0.5,
-              }}
+              sx={ESTILO_TITULO}
+            >
+              Resumen de ventas
+            </Typography>
+
+            <Typography
+              variant="caption"
+              sx={ESTILO_DESCRIPCION}
+            >
+              Ventas emitidas durante {periodoTexto}.
+              Importes obtenidos del módulo de Ventas.
+            </Typography>
+
+            <TableContainer>
+              <Table size="small" sx={ESTILO_TABLA}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>INDICADOR</TableCell>
+                    <TableCell align="right">
+                      VALOR
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+
+                <TableBody>
+                  {[
+                    [
+                      'Ventas netas (sin IVA)',
+                      formatoMoneda(ventasNetas),
+                    ],
+                    [
+                      'IVA débito fiscal',
+                      formatoMoneda(ivaDebito),
+                    ],
+                    [
+                      'Total cobrado (con IVA)',
+                      formatoMoneda(totalCobrado),
+                    ],
+                    [
+                      'Costo de ventas',
+                      formatoMoneda(costoVentas),
+                    ],
+                    [
+                      'Utilidad bruta',
+                      formatoMoneda(utilidadBruta),
+                    ],
+                    [
+                      'Cantidad de ventas',
+                      formatoNumero(cantidadVentas),
+                    ],
+                  ].map(([nombre, valor]) => (
+                    <TableRow key={nombre}>
+                      <TableCell>{nombre}</TableCell>
+
+                      <TableCell
+                        align="right"
+                        sx={{ fontWeight: 700 }}
+                      >
+                        {ventasDisponibles ? valor : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper
+            elevation={0}
+            sx={{ ...ESTILO_TARJETA, p: 3 }}
+          >
+            <Typography
+              variant="subtitle1"
+              sx={ESTILO_TITULO}
+            >
+              Gastos y resultado operativo
+            </Typography>
+
+            <Typography
+              variant="caption"
+              sx={ESTILO_DESCRIPCION}
+            >
+              Gastos registrados durante {periodoTexto}
+              y resultado de las operaciones.
+            </Typography>
+
+            <TableContainer>
+              <Table size="small" sx={ESTILO_TABLA}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>INDICADOR</TableCell>
+                    <TableCell align="right">
+                      VALOR
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+
+                <TableBody>
+                  {[
+                    [
+                      'Gastos administrativos',
+                      formatoMoneda(gastosAdministracion),
+                      gastosDisponibles,
+                    ],
+                    [
+                      'Gastos de venta',
+                      formatoMoneda(gastosVenta),
+                      gastosDisponibles,
+                    ],
+                    [
+                      'Total gastos operativos',
+                      formatoMoneda(totalGastos),
+                      gastosDisponibles,
+                    ],
+                    [
+                      'Registros de gastos',
+                      formatoNumero(cantidadGastos),
+                      gastosDisponibles,
+                    ],
+                    [
+                      'Utilidad operativa',
+                      formatoMoneda(utilidadOperativa),
+                      finanzasDisponibles,
+                    ],
+                  ].map(([nombre, valor, disponible]) => (
+                    <TableRow key={nombre}>
+                      <TableCell>{nombre}</TableCell>
+
+                      <TableCell
+                        align="right"
+                        sx={{
+                          fontWeight:
+                            nombre === 'Utilidad operativa'
+                              ? 800
+                              : 700,
+                          color:
+                            nombre === 'Utilidad operativa'
+                              ? COLORES.principal
+                              : COLORES.texto,
+                        }}
+                      >
+                        {disponible ? valor : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* ======================================
+          RESUMEN DE INVENTARIO
+      ====================================== */}
+
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        {/* PRODUCTOS CON MAYOR VALOR */}
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper
+            elevation={0}
+            sx={{ ...ESTILO_TARJETA, p: 3 }}
+          >
+            <Typography
+              variant="subtitle1"
+              sx={ESTILO_TITULO}
             >
               Productos por valor en inventario
             </Typography>
 
             <Typography
               variant="caption"
-              sx={{
-                color: '#8190A5',
-                display: 'block',
-                mb: 3,
-              }}
+              sx={ESTILO_DESCRIPCION}
             >
               Cinco productos con mayor valoración
               según existencias y costo promedio.
             </Typography>
 
-            {!datosDisponibles ? (
+            {!productosDisponibles ? (
               <Typography color="text.secondary">
                 {cargando
                   ? 'Cargando productos...'
@@ -451,7 +1027,7 @@ export default function Dashboard() {
                             variant="body2"
                             sx={{
                               fontWeight: 700,
-                              color: '#24334E',
+                              color: COLORES.texto,
                             }}
                           >
                             {producto.descripcion}
@@ -459,7 +1035,9 @@ export default function Dashboard() {
 
                           <Typography
                             variant="caption"
-                            sx={{ color: '#8190A5' }}
+                            sx={{
+                              color: COLORES.secundario,
+                            }}
                           >
                             {producto.codigo} ·{' '}
                             {producto.stock} unidades
@@ -470,7 +1048,7 @@ export default function Dashboard() {
                           variant="body2"
                           sx={{
                             fontWeight: 800,
-                            color: '#4C67ED',
+                            color: COLORES.principal,
                             whiteSpace: 'nowrap',
                           }}
                         >
@@ -486,7 +1064,7 @@ export default function Dashboard() {
                           borderRadius: 8,
                           bgcolor: '#EEF1FF',
                           '& .MuiLinearProgress-bar': {
-                            bgcolor: '#4C67ED',
+                            bgcolor: COLORES.principal,
                             borderRadius: 8,
                           },
                         }}
@@ -499,35 +1077,29 @@ export default function Dashboard() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        {/* DISTRIBUCIÓN POR CATEGORÍA */}
+
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper
             elevation={0}
             sx={{ ...ESTILO_TARJETA, p: 3 }}
           >
             <Typography
               variant="subtitle1"
-              sx={{
-                fontWeight: 800,
-                color: '#17243B',
-                mb: 0.5,
-              }}
+              sx={ESTILO_TITULO}
             >
               Resumen del catálogo
             </Typography>
 
             <Typography
               variant="caption"
-              sx={{
-                color: '#8190A5',
-                display: 'block',
-                mb: 3,
-              }}
+              sx={ESTILO_DESCRIPCION}
             >
               Distribución de artículos por categoría.
             </Typography>
 
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Box
                   sx={{
                     p: 2,
@@ -539,10 +1111,10 @@ export default function Dashboard() {
                     variant="h5"
                     sx={{
                       fontWeight: 800,
-                      color: '#4C67ED',
+                      color: COLORES.principal,
                     }}
                   >
-                    {datosDisponibles
+                    {productosDisponibles
                       ? productosConStock
                       : '—'}
                   </Typography>
@@ -556,7 +1128,7 @@ export default function Dashboard() {
                 </Box>
               </Grid>
 
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Box
                   sx={{
                     p: 2,
@@ -571,7 +1143,7 @@ export default function Dashboard() {
                       color: '#B57822',
                     }}
                   >
-                    {datosDisponibles
+                    {productosDisponibles
                       ? productosSinStock
                       : '—'}
                   </Typography>
@@ -587,10 +1159,10 @@ export default function Dashboard() {
             </Grid>
 
             <TableContainer>
-              <Table size="small">
+              <Table size="small" sx={ESTILO_TABLA}>
                 <TableHead>
                   <TableRow>
-                    <TableCell> CATEGORÍA </TableCell>
+                    <TableCell>CATEGORÍA</TableCell>
                     <TableCell align="right">
                       PRODUCTOS
                     </TableCell>
@@ -601,23 +1173,28 @@ export default function Dashboard() {
                 </TableHead>
 
                 <TableBody>
-                  {datosDisponibles ? (
+                  {productosDisponibles ? (
                     resumenCategorias.map((categoria) => (
                       <TableRow key={categoria.codigo}>
                         <TableCell>
                           {categoria.nombre}
                         </TableCell>
+
                         <TableCell align="right">
-                          {categoria.cantidad}
+                          {formatoNumero(categoria.cantidad)}
                         </TableCell>
+
                         <TableCell align="right">
-                          {categoria.unidades}
+                          {formatoNumero(categoria.unidades)}
                         </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={3} align="center">
+                      <TableCell
+                        colSpan={3}
+                        align="center"
+                      >
                         Sin datos disponibles
                       </TableCell>
                     </TableRow>
@@ -629,18 +1206,17 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
-      {/* VALUACIÓN CONTABLE */}
+      {/* ======================================
+          VALUACIÓN CONTABLE WAC
+      ====================================== */}
+
       <Paper
         elevation={0}
         sx={{ ...ESTILO_TARJETA, p: 3 }}
       >
         <Typography
           variant="subtitle1"
-          sx={{
-            fontWeight: 800,
-            color: '#17243B',
-            mb: 0.5,
-          }}
+          sx={ESTILO_TITULO}
         >
           Inventario: Valuación a Costo Promedio (WAC)
         </Typography>
@@ -648,119 +1224,60 @@ export default function Dashboard() {
         <Typography
           variant="caption"
           sx={{
-            color: '#8190A5',
-            display: 'block',
+            ...ESTILO_DESCRIPCION,
             mb: 2,
           }}
         >
           Valuación según existencias y costo promedio
-          registrado. La trazabilidad por compras y ventas
-          se integrará posteriormente.
+          registrado. El costo de ventas corresponde
+          al período seleccionado y proviene de las
+          ventas emitidas.
         </Typography>
 
         <TableContainer>
-          <Table size="small">
+          <Table size="small" sx={ESTILO_TABLA}>
             <TableHead>
               <TableRow>
                 <TableCell>INDICADOR</TableCell>
-                <TableCell align="right">VALOR</TableCell>
-                <TableCell align="right">ESTADO</TableCell>
+                <TableCell align="right">
+                  VALOR
+                </TableCell>
+                <TableCell align="right">
+                  ESTADO
+                </TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
-              <TableRow>
-                <TableCell>
-                  Valor total del inventario
-                </TableCell>
-                <TableCell align="right">
-                  {datosDisponibles
-                    ? formatoMoneda(inversion)
-                    : '—'}
-                </TableCell>
-                <TableCell align="right">
-                  <Chip
-                    label="Conectado"
-                    size="small"
-                    sx={{
-                      bgcolor: '#EEF1FF',
-                      color: '#4C67ED',
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
+              <FilaIndicador
+                nombre="Valor total del inventario"
+                valor={formatoMoneda(inversion)}
+                disponible={inventarioDisponible}
+              />
 
-              <TableRow>
-                <TableCell>
-                  Unidades disponibles
-                </TableCell>
-                <TableCell align="right">
-                  {datosDisponibles
-                    ? formatoNumero(unidades)
-                    : '—'}
-                </TableCell>
-                <TableCell align="right">
-                  <Chip
-                    label="Conectado"
-                    size="small"
-                    sx={{
-                      bgcolor: '#EEF1FF',
-                      color: '#4C67ED',
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
+              <FilaIndicador
+                nombre="Unidades disponibles"
+                valor={formatoNumero(unidades)}
+                disponible={inventarioDisponible}
+              />
 
-              <TableRow>
-                <TableCell>
-                  Costo de ventas acumulado
-                </TableCell>
-                <TableCell align="right">—</TableCell>
-                <TableCell align="right">
-                  <Chip
-                    label="Pendiente"
-                    size="small"
-                    sx={{
-                      bgcolor: '#F1F5F9',
-                      color: '#64748B',
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
+              <FilaIndicador
+                nombre={`Costo de ventas (${periodoTexto})`}
+                valor={formatoMoneda(costoVentas)}
+                disponible={ventasDisponibles}
+              />
 
-              <TableRow>
-                <TableCell>
-                  Rotación de inventarios
-                </TableCell>
-                <TableCell align="right">—</TableCell>
-                <TableCell align="right">
-                  <Chip
-                    label="Pendiente"
-                    size="small"
-                    sx={{
-                      bgcolor: '#F1F5F9',
-                      color: '#64748B',
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
+              <FilaIndicador
+                nombre="Rotación de inventarios"
+                disponible={false}
+                pendiente
+              />
 
-              <TableRow>
-                <TableCell>
-                  Días promedio de inventario
-                </TableCell>
-                <TableCell align="right">—</TableCell>
-                <TableCell align="right">
-                  <Chip
-                    label="Pendiente"
-                    size="small"
-                    sx={{
-                      bgcolor: '#F1F5F9',
-                      color: '#64748B',
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
+              <FilaIndicador
+                nombre="Días promedio de inventario"
+                disponible={false}
+                pendiente
+              />
             </TableBody>
           </Table>
         </TableContainer>
