@@ -24,7 +24,7 @@ import {
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
-import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import RatiosDashboard from './RatiosDashboard';
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
@@ -747,14 +747,6 @@ export default function Dashboard() {
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
-          <TarjetaMetrica
-            titulo="Razón corriente"
-            pendiente
-            detalle="Pendiente: activos y pasivos corrientes"
-            icono={<AccountBalanceOutlinedIcon />}
-          />
-        </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
           <TarjetaMetrica
@@ -769,6 +761,9 @@ export default function Dashboard() {
           />
         </Grid>
       </Grid>
+
+      {/* FIN-03 | Razón corriente y Margen neto */}
+      <RatiosDashboard anio={anio} mes={mes} revision={revision} />
 
       {/* ======================================
           INFORMACIÓN DEL PERÍODO
@@ -788,8 +783,9 @@ export default function Dashboard() {
         corresponden a <strong>{periodoTexto}</strong>.
         El inventario representa las existencias
         actuales valorizadas a costo promedio WAC.
-        La razón corriente permanece pendiente
-        hasta disponer de activos y pasivos corrientes.
+        Las razones financieras se calculan a partir de
+        los datos registrados y pueden ser provisionales
+        mientras falten saldos iniciales.
       </Alert>
 
       {/* ======================================
