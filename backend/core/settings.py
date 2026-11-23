@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'gastos',
     'ventas',
     'compras',
+    'estados_financieros',
 ]
 
 MIDDLEWARE = [

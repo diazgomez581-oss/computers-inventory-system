@@ -11,6 +11,8 @@ import Gastos from './pages/Gastos';
 import Ventas from './pages/Ventas';
 import Compras from './pages/Compras';
 import Kardex from './pages/Kardex';
+import EstadoResultados from './pages/EstadoResultados';
+import BalanceGeneral from './pages/BalanceGeneral';
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000;
 const INACTIVITY_MESSAGE =
@@ -243,16 +245,17 @@ function App() {
         {currentView === 'gastos' && <Gastos />}
 
         {currentView === 'estado_resultados' && (
-          <h2>Estado de Resultados (FIN-03)</h2>
+          <EstadoResultados />
         )}
 
         {currentView === 'balance_general' && (
-          <h2>Balance General (FIN-03)</h2>
+          <BalanceGeneral />
         )}
 
         {currentView === 'ratios' && (
-          <h2>Razones Financieras (FIN-03)</h2>
+          <RazonesFinancieras />
         )}
+
       </Box>
     </Box>
   );
