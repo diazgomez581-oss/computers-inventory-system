@@ -141,50 +141,19 @@ class BalanceGeneralTests(TestCase):
         self.assertEqual(datos['activo']['efectivo'], '-113.00')
         self.assertFalse(datos['comprobacion']['cuadra'])
 
-
     def test_inventario_consulta_ultimo_kardex_a_fecha(self):
-        # FIN-03 | Balance General
-        # Comprobar la valoración histórica del inventario.
-
-        producto = Producto.objects.create(
-            descripcion="Prueba balance",
-            stock=2,
-            costo_promedio=Decimal("10.0000")
+        prod = Producto.objects.create(descripcion='Prueba balance', stock=2,
+                                       costo_promedio=Decimal('10.0000'))
+        movimiento = MovimientoKardex.objects.create(producto=prod, tipo='ENTRADA',
+             detalle='Compra prueba', cantidad_entrada=2, costo_unitario_entrada=Decimal('10.0000'),
+             total_entrada=Decimal('20.00'), saldo_cantidad=2,
+             saldo_costo_unitario=Decimal('10.0000'), saldo_total=Decimal('20.00'))
+        Producto.objects.filter(pk=prod.pk).update(
+            fecha_creacion=timezone.make_aware(datetime(2026, 11, 9, 12, 0))
         )
+        self.fijar_fecha(MovimientoKardex, movimiento.pk, 10)
+        self.assertEqual(self.api.get(URL_BALANCE_GENERAL).data['activo']['inventarios'], '20.00')
 
-        # Establecer la fecha del producto antes del corte.
-        Producto.objects.filter(pk=producto.pk).update(
-            fecha_creacion=timezone.make_aware(
-                datetime(2026, 11, 9, 12, 0)
-            )
-        )
-
-        movimiento = MovimientoKardex.objects.create(
-            producto=producto,
-            tipo="ENTRADA",
-            detalle="Compra prueba",
-            cantidad_entrada=2,
-            costo_unitario_entrada=Decimal("10.0000"),
-            total_entrada=Decimal("20.00"),
-            saldo_cantidad=2,
-            saldo_costo_unitario=Decimal("10.0000"),
-            saldo_total=Decimal("20.00")
-        )
-
-        # El movimiento ocurre antes de la fecha de corte.
-        self.fijar_fecha(
-            MovimientoKardex,
-            movimiento.pk,
-            10
-        )
-
-        respuesta = self.api.get(URL_BALANCE_GENERAL)
-
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertEqual(
-            respuesta.data["activo"]["inventarios"],
-            "20.00"
-        )
 
 # ============================================================
 # FIN-03 | 3. PRUEBAS DE RAZONES FINANCIERAS
@@ -228,3 +197,57 @@ class RazonesFinancierasTests(TestCase):
     def test_requiere_autenticacion(self):
         respuesta = APIClient().get(self.url)
         self.assertIn(respuesta.status_code, (401, 403))
+
+
+# ============================================================
+# FIN-03 | 4. PRUEBAS DE SALARIOS POR PAGAR
+# ============================================================
+from .models import SalarioPorPagar, PagoSalario
+
+
+class SalariosPorPagarTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user(username='salario_fin03', password='Test123456!')
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.usuario)
+        self.salario = SalarioPorPagar.objects.create(
+            fecha_devengo=date(2026, 11, 10), fecha_vencimiento=date(2026, 11, 30),
+            descripcion='Nómina pendiente noviembre', monto=Decimal('10000.00'),
+            registrado_por=self.usuario
+        )
+
+    def test_salario_pendiente_aumenta_pasivo_y_disminuye_utilidad(self):
+        balance = self.api.get('/api/balance-general/?fecha=2026-11-22').data
+        estado = self.api.get(URL_ESTADO_RESULTADOS).data
+        self.assertEqual(balance['pasivo']['salarios_por_pagar'], '10000.00')
+        self.assertEqual(balance['patrimonio']['utilidad_ejercicio'], '-10000.00')
+        self.assertEqual(balance['activo']['efectivo'], '0.00')
+        self.assertTrue(balance['comprobacion']['cuadra'])
+        self.assertEqual(estado['gastos_administracion'], '10000.00')
+        self.assertEqual(estado['utilidad_neta'], '-10000.00')
+
+    def test_abono_reduce_efectivo_y_deuda_sin_duplicar_gasto(self):
+        PagoSalario.objects.create(salario=self.salario, fecha=date(2026, 11, 20),
+            monto=Decimal('2500.00'), registrado_por=self.usuario)
+        balance = self.api.get('/api/balance-general/?fecha=2026-11-22').data
+        self.assertEqual(balance['pasivo']['salarios_por_pagar'], '7500.00')
+        self.assertEqual(balance['activo']['efectivo'], '-2500.00')
+        self.assertEqual(balance['patrimonio']['utilidad_ejercicio'], '-10000.00')
+        self.assertTrue(balance['comprobacion']['cuadra'])
+
+    def test_fechas_de_corte_respetadas(self):
+        PagoSalario.objects.create(salario=self.salario, fecha=date(2026, 12, 5),
+            monto=Decimal('10000.00'), registrado_por=self.usuario)
+        antes = self.api.get('/api/balance-general/?fecha=2026-11-22').data
+        despues = self.api.get('/api/balance-general/?fecha=2026-12-10').data
+        self.assertEqual(antes['pasivo']['salarios_por_pagar'], '10000.00')
+        self.assertEqual(despues['pasivo']['salarios_por_pagar'], '0.00')
+        self.assertEqual(despues['activo']['efectivo'], '-10000.00')
+        self.assertTrue(despues['comprobacion']['cuadra'])
+
+    def test_pago_excesivo_rechazado(self):
+        from django.core.exceptions import ValidationError
+        pago = PagoSalario(salario=self.salario, fecha=date(2026, 11, 20),
+            monto=Decimal('10000.01'), registrado_por=self.usuario)
+        with self.assertRaises(ValidationError):
+            pago.full_clean()
