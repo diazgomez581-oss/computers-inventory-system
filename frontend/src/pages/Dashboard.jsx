@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { API_URL } from '../api';
 
@@ -41,6 +40,7 @@ const URLS = {
   productos: `${BASE_API}/api/productos/`,
   ventas: `${BASE_API}/api/ventas/resumen/`,
   gastos: `${BASE_API}/api/gastos/resumen-mensual/`,
+  estadoResultados: `${BASE_API}/api/estado-resultados/`,
 };
 
 const MESES = [
@@ -313,6 +313,7 @@ export default function Dashboard() {
   const [productos, setProductos] = useState(null);
   const [ventas, setVentas] = useState(null);
   const [gastos, setGastos] = useState(null);
+  const [estadoResultados, setEstadoResultados] = useState(null);
 
   const [cargando, setCargando] = useState(true);
   const [errores, setErrores] = useState([]);
@@ -334,6 +335,7 @@ export default function Dashboard() {
       setProductos(null);
       setVentas(null);
       setGastos(null);
+    setEstadoResultados(null);
 
       const periodo = `anio=${anio}&mes=${mes}`;
 
@@ -356,6 +358,12 @@ export default function Dashboard() {
         consultarAPI(
           `${URLS.gastos}?${periodo}`,
           'Gastos',
+          controller.signal
+        ),
+        // FIN-03: incluye salarios devengados, aunque no estén pagados.
+        consultarAPI(
+          `${URLS.estadoResultados}?${periodo}`,
+          'Estado de Resultados',
           controller.signal
         ),
       ];
@@ -405,6 +413,10 @@ export default function Dashboard() {
           if (indice === 3) {
             setGastos(datos);
           }
+
+          if (indice === 4) {
+            setEstadoResultados(datos);
+          }
         });
 
         setErrores(mensajes);
@@ -438,8 +450,8 @@ export default function Dashboard() {
   const ventasDisponibles = ventas !== null;
   const gastosDisponibles = gastos !== null;
 
-  const finanzasDisponibles =
-    ventasDisponibles && gastosDisponibles;
+  // El Estado de Resultados es la fuente contable del período.
+  const finanzasDisponibles = estadoResultados !== null;
 
   // ==========================================
   // INDICADORES DE INVENTARIO
@@ -480,16 +492,17 @@ export default function Dashboard() {
   // INDICADORES DE GASTOS
   // ==========================================
 
+  // FIN-03: utilizar gastos contables completos, incluidos salarios devengados.
   const gastosAdministracion = Number(
-    gastos?.total_administracion ?? 0
+    estadoResultados?.gastos_administracion ?? 0
   );
 
   const gastosVenta = Number(
-    gastos?.total_venta ?? 0
+    estadoResultados?.gastos_venta ?? 0
   );
 
   const totalGastos = Number(
-    gastos?.total_gastos ?? 0
+    estadoResultados?.gastos_operativos ?? 0
   );
 
   const cantidadGastos = Number(
@@ -500,8 +513,9 @@ export default function Dashboard() {
   // UTILIDAD OPERATIVA REAL
   // ==========================================
 
-  const utilidadOperativa =
-    utilidadBruta - totalGastos;
+  const utilidadOperativa = Number(
+    estadoResultados?.utilidad_neta ?? 0
+  );
 
   // ==========================================
   // RESUMEN DEL CATÁLOGO
@@ -732,7 +746,7 @@ export default function Dashboard() {
 
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}>
           <TarjetaMetrica
-            titulo="Utilidad operativa"
+            titulo="Resultado del período"
             valor={
               finanzasDisponibles
                 ? formatoMoneda(utilidadOperativa)
@@ -740,8 +754,8 @@ export default function Dashboard() {
             }
             detalle={
               finanzasDisponibles
-                ? 'Ventas netas - costo - gastos'
-                : 'Requiere ventas y gastos'
+                ? 'Resultado según Estado de Resultados (FIN-03)'
+                : 'Requiere Estado de Resultados'
             }
             icono={<TrendingUpOutlinedIcon />}
           />
@@ -884,8 +898,8 @@ export default function Dashboard() {
               variant="caption"
               sx={ESTILO_DESCRIPCION}
             >
-              Gastos registrados durante {periodoTexto}
-              y resultado de las operaciones.
+              Gastos contables de {periodoTexto}, incluidos salarios devengados,
+              y resultado del período.
             </Typography>
 
             <TableContainer>
@@ -904,17 +918,17 @@ export default function Dashboard() {
                     [
                       'Gastos administrativos',
                       formatoMoneda(gastosAdministracion),
-                      gastosDisponibles,
+                      finanzasDisponibles,
                     ],
                     [
                       'Gastos de venta',
                       formatoMoneda(gastosVenta),
-                      gastosDisponibles,
+                      finanzasDisponibles,
                     ],
                     [
                       'Total gastos operativos',
                       formatoMoneda(totalGastos),
-                      gastosDisponibles,
+                      finanzasDisponibles,
                     ],
                     [
                       'Registros de gastos',
@@ -922,7 +936,7 @@ export default function Dashboard() {
                       gastosDisponibles,
                     ],
                     [
-                      'Utilidad operativa',
+                      'Resultado del período',
                       formatoMoneda(utilidadOperativa),
                       finanzasDisponibles,
                     ],
@@ -934,11 +948,11 @@ export default function Dashboard() {
                         align="right"
                         sx={{
                           fontWeight:
-                            nombre === 'Utilidad operativa'
+                            nombre === 'Resultado del período'
                               ? 800
                               : 700,
                           color:
-                            nombre === 'Utilidad operativa'
+                            nombre === 'Resultado del período'
                               ? COLORES.principal
                               : COLORES.texto,
                         }}

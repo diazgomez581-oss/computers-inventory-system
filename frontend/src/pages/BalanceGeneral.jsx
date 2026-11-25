@@ -174,6 +174,7 @@ export default function BalanceGeneral() {
 
           <Seccion titulo="PASIVO CORRIENTE">
             <Fila nombre="Cuentas por pagar" valor={datos.pasivo?.cuentas_por_pagar} />
+            <Fila nombre="Salarios por pagar" valor={datos.pasivo?.salarios_por_pagar} />
             <Fila nombre="IVA neto por pagar" valor={datos.pasivo?.iva_por_pagar} />
             <Divider sx={{ my: 1 }} />
             <Fila nombre="TOTAL PASIVO" valor={datos.pasivo?.total} destacado />
@@ -212,6 +213,12 @@ export default function BalanceGeneral() {
               </Stack>
             </Box>
           )}
+
+          <Typography sx={{ color: '#7184A5', mt: 3, fontSize: 12 }}>
+            Reporte generado a partir de los registros del sistema. Las ventas se consideran
+            cobradas y las compras pagadas de inmediato, conforme a las reglas actuales.
+            Verifica los saldos de apertura antes de utilizar el balance como estado definitivo.
+          </Typography>
         </Paper>
       ) : null}
     </Box>
